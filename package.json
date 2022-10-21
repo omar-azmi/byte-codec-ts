@@ -1,0 +1,30 @@
+{
+  "name": "byte-codec-ts",
+  "version": "1.0.0",
+  "description": "a schema based serializer for primitive javascript types with no dependencies.",
+  "main": "index.js",
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "build-docs": "node ./scripts/build-docs.mjs",
+    "clean": "node ./scripts/clean.js",
+    "host-docs": "node ./scripts/host.js ./docs 8000",
+    "host-demo": "node ./scripts/host.js ./demo 8000",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "serializer",
+    "schema",
+    "binary",
+    "codec",
+    "packing",
+    "parser"
+  ],
+  "author": "Omar Azmi",
+  "license": "Lulz plz don't steal yet",
+  "devDependencies": {
+    "esbuild": "^0.15.11",
+    "typedoc": "^0.23.16",
+    "typedoc-plugin-not-exported": "^0.1.6",
+    "typescript": "^4.8.4"
+  }
+}

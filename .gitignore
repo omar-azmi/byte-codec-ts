@@ -1,0 +1,11 @@
+# Defaults
+node_modules/
+pnpm-lock.yaml
+
+# Main-branch exclusive directories
+# dist/
+# docs/
+
+# Local temporaries
+backup/
+backups/

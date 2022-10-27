@@ -1,5 +1,5 @@
 import { SArray, SPrimitive, SRecord } from "../src/schema_codec"
-import { Obj } from "../src/utility"
+import { FileParser, Obj } from "../src/utility"
 
 const png_chunk = class extends SRecord {
 	constructor() {
@@ -27,8 +27,8 @@ const png_chunks = class extends SArray<Obj, "record"> {
 		const chunks: Obj[] = []
 		let total_bytesize = 0
 		while (offset + total_bytesize < buf.byteLength) {
-			const [chunk, bytesize] = super.decode(buf, offset + total_bytesize, 0, 1)
-			chunks.push(...chunk)
+			const [chunk, bytesize] = super.decodeNext(buf, offset + total_bytesize)
+			chunks.push(chunk)
 			total_bytesize += bytesize
 			if (chunk["chunk_type"] === "IEND") break
 		}
@@ -69,6 +69,9 @@ export const png_schema = class extends SRecord {
 	}
 }
 
+export const png_file_parser = new FileParser(new png_schema())
+window.png_file_parser = png_file_parser
+export default png_file_parser
 
 
 

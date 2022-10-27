@@ -8,6 +8,7 @@
     "build-dist": "node ./scripts/build-dist.mjs",
     "build-docs": "node ./scripts/build-docs.mjs",
     "build-examples": "node ./scripts/build-examples.mjs",
+    "build-site": "npm run build-examples && npm run build-docs && npm run build-dist",
     "clean-builds": "node ./scripts/clean-builds.mjs",
     "host-docs": "node ./scripts/host.mjs ./docs 8000",
     "host-examples": "node ./scripts/host.mjs ./dist/examples 8000",

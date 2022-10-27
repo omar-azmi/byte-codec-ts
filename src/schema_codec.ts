@@ -3,12 +3,9 @@
  * @module
 */
 
-import { concat, Obj } from "./utility"
+import { concat, ConstructorOf, Require, Obj, is_subidentical } from "./utility"
 import { encode as encodeP, decode as decodeP, JSPrimitive, PrimitiveType } from "./primitive_codec"
 
-type Require<T, P extends keyof T> = Omit<T, P> & Required<Pick<T, P>>
-
-type ConstructorOf<T> = new (...args: any[]) => T
 
 export type JSSimpleTypes = JSPrimitive | JSSimpleTypes[] | { [name: PropertyKey]: JSSimpleTypes }
 
@@ -124,7 +121,7 @@ export class SPrimitive<T extends JSPrimitive = any, TypeName extends PrimitiveT
 	}
 	static override from: MakeSchemaFrom<SPrimitive<JSPrimitive, PrimitiveType>> = (schema_obj) => new this(schema_obj.type, schema_obj.value, schema_obj.args)
 	override encode(value: T, ...args: any[]) {
-		return encodeP(this.type, value, this.args)
+		return encodeP(this.type, value, ...(args.length > 0 ? args : this.args))
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: Parameters<typeof encodeP>[2]) {
 		return decodeP(this.type, buf, offset, ...(args.length > 0 ? args : this.args)) as [value: T, bytesize: number]
@@ -175,6 +172,27 @@ export class SRecord extends SchemaNode<Obj, "record"> {
 		}
 		return [record, total_bytesize] as [value: Obj, bytesize: number]
 	}
+	/** an iterator to decode child schemas sequentially as needed
+	*decodeIter(buf: Uint8Array, offset: number, initial_number_of_items: number = 1): Generator<
+		[value: Partial<this["value"]>, bytesize: number],
+		[value: NonNullable<this["value"]>, bytesize: number],
+		number
+	> {
+		const
+			record: typeof this["value"] = {},
+			child_start = args[0] || this.args[0] || 0,
+			child_end = args[1] || this.args[1] || this.children.length
+		let total_bytesize = 0
+		for (let ch = child_start; ch < child_end; ch++) {
+			const
+				child = this.children[ch],
+				[value, bytesize] = child.decode(buf, offset + total_bytesize)
+			total_bytesize += bytesize
+			record[child.name] = value
+		}
+		return [record, total_bytesize] as [value: Obj, bytesize: number]
+	}
+	*/
 }
 
 /** a schema node for a nested tuple-like javascript array types */
@@ -276,4 +294,128 @@ export class SArray<ItemType extends object, ItemTypeName extends string> extend
 		}
 		return [arr, total_bytesize] as [value: ItemType[], bytesize: number]
 	}
+	/** decode one item */
+	decodeNext(buf: Uint8Array, offset: number, ...args: never[]): [value: ItemType, bytesize: number] {
+		return this.children[0].decode(buf, offset)
+	}
 }
+
+/** an enum entry to be used as a child of an `SEnum` schema node. this schema node's `value` must be a 2-tuple array with the first element (of type `T`) being the javascript value, and the second element (of type `Uint8Array`) being its corresponding bytes */
+export class SEnumEntry<T> extends SchemaNode<[T, Uint8Array], "enumentry"> {
+	declare type: "enumentry"
+	declare value: [T, Uint8Array]
+	constructor(enum_value: T, enum_bytes: Uint8Array | number[]) {
+		if (!(enum_bytes instanceof Uint8Array)) enum_bytes = Uint8Array.from(enum_bytes)
+		super("enumentry", [enum_value, enum_bytes])
+	}
+	/** this functionality is made into a method instead of being embeded into `SEnum.decode` mainly so that it's possible to subclass it
+	 * @returns `true` if the bytes in the provided `buffer` and `offset` match with this enum entry's bytes, else the result is `false`
+	*/
+	matchBytes(buffer: Uint8Array, offset: number, ...args: any[]): boolean {
+		const
+			sub_buf = buffer.subarray(offset),
+			enum_bytes = this.value[1],
+			len = enum_bytes.byteLength
+		for (let i = 0; i < len; i++) if (sub_buf[i] != enum_bytes[i]) return false
+		return true
+	}
+	/** this functionality is made into a method instead of being embeded into `SEnum.encode` mainly so that it's possible to subclass it
+	 * @returns `true` if the provided `value` matches with this enum entry's value, else the result is `false`
+	*/
+	matchValue(value: T, ...args: any[]): boolean {
+		const enum_value = this.value[0]
+		if (value !== enum_value) return false
+		return true
+	}
+	override encode(value?: T, ...args: any[]): this["value"][1] {
+		return this.value[1]
+	}
+	override decode(buffer: Uint8Array, offset: number, ...args: any[]): [value: this["value"][0], bytesize: number] {
+		return [this.value[0], this.value[1].byteLength]
+	}
+}
+
+/** a schema node for a `Uint8Array` bytes literal that has a one-to-one mapping with a primitive javascript value */
+export class SEnum extends SchemaNode<JSPrimitive, "enum"> {
+	declare type: "enum"
+	declare value?: this["children"][number]["value"][0]
+	/** each child `SEnumEntry` dictates a possible enum bytes and value pair entry */
+	declare children: SEnumEntry<JSPrimitive>[]
+	/** if no `value` or `bytes` match with any of the enum entries (`children`) then use the codec of the provided `default_schema` */
+	default_schema: SchemaNode<any, any> = new SEnumEntry(undefined, new Uint8Array())
+
+	constructor(...children: SEnumEntry<JSPrimitive>[]) {
+		super("enum")
+		this.pushChildren(...children)
+	}
+	setDefault(schema: this["default_schema"]): this {
+		this.default_schema = schema
+		return this
+	}
+	getDefault(): this["default_schema"] {
+		return this.default_schema
+	}
+	override encode(value: NonNullable<this["value"]>, ...args: []) {
+		for (const entry_schema of this.children)
+			if (entry_schema.matchValue(value))
+				return entry_schema.encode()
+		return this.default_schema.encode(value, ...args)
+	}
+	override decode(buf: Uint8Array, offset: number, ...args: []) {
+		for (const entry_schema of this.children)
+			if (entry_schema.matchBytes(buf, offset))
+				return entry_schema.decode(buf, offset)
+		return this.default_schema.decode(buf, offset, ...args)
+	}
+}
+
+/** a schema node representing a union between different types of schema nodes */
+/*
+export class SUnion<ItemType extends object, ItemTypeName extends string> extends SchemaNode<ItemType[], "union"> {
+	declare type: "union"
+	declare value?: ItemType[]
+
+	constructor(child?: SchemaNode<ItemType, ItemTypeName>, array_length?: number) {
+		super("union")
+		if (child) this.pushChildren(child)
+		if (array_length) this.setArgs(0, array_length)
+	}
+	static override from: MakeSchemaFrom<SArray<any, string>> = (schema_obj) => {
+		const
+			child: { type: string } = schema_obj.children[0],
+			len: number = schema_obj.args ? schema_obj.args[0] : undefined,
+			new_schema = new this(makeS(child) as SchemaNode<any, any>, len)
+		return new_schema
+	}
+	override encode(value: ItemType[], ...args: [index_start?: number, index_end?: number]) {
+		const
+			bytes: Uint8Array[] = [],
+			item_schema = this.children[0],
+			index_start = args[0] || this.args[0] || 0, // `this.args[0]` should equal to `index_start` when decoding
+			index_end = args[1] || this.args[1] || value.length // `this.args[1]` should equal to `index_end` when decoding
+		for (let i = index_start; i < index_end; i++) bytes.push(item_schema.encode(value[i]))
+		return concat(...bytes)
+	}
+	override decode(buf: Uint8Array, offset: number, ...args: [index_start?: number, index_end?: number] | [len?: number,]) {
+		const
+			arr: typeof this["value"] = [],
+			item_schema = this.children[0]
+		let
+			total_bytesize = 0,
+			index_start = args[0] || this.args[0] || 0,
+			index_end = args[1] || this.args[1]
+		// BAD LOOSE TYPING PRACTICE. for the sake of accounting for user mistake
+		// if only a single argument is passed as `...args`, or if only a single item is present in `this.args`, then interpret it as `index_end` (array length) instead of `index_start`
+		if (index_end === undefined) {
+			index_end = index_start
+			index_start = 0
+		}
+		for (let i = index_start; i < index_end; i++) {
+			const [value, bytesize] = item_schema.decode(buf, offset + total_bytesize)
+			total_bytesize += bytesize
+			arr[i] = value
+		}
+		return [arr, total_bytesize] as [value: ItemType[], bytesize: number]
+	}
+}
+*/

@@ -71,6 +71,7 @@ export type DecodeFunc<T extends JSPrimitive, ARGS extends any[] = []> = (buffer
 
 const txt_encoder = new TextEncoder()
 const txt_decoder = new TextDecoder()
+
 /** dictates if the native endianess of your `TypedArray`s is little endian. @notExported*/
 const env_le = getEnvironmentEndianess()
 
@@ -116,6 +117,7 @@ export const decodeSeq = (buf: Uint8Array, offset: number, ...items: [type: Prim
 	return [values, total_bytesize]
 }
 
+/** auto value encoder for {@link PrimitiveType} */
 export const encode = (type: PrimitiveType, value: JSPrimitive, ...args: any[]): ReturnType<EncodeFunc<JSPrimitive>> => {
 	switch (type) {
 		case "bool": return encode_bool(value as boolean)
@@ -129,6 +131,7 @@ export const encode = (type: PrimitiveType, value: JSPrimitive, ...args: any[]):
 	}
 }
 
+/** auto buffer decoder for {@link PrimitiveType} */
 export const decode = (type: PrimitiveType, buf: Uint8Array, offset: number, ...args: any[]): ReturnType<DecodeFunc<JSPrimitive>> => {
 	switch (type) {
 		case "bool": return decode_bool(buf, offset)
@@ -243,9 +246,9 @@ const encode_number: EncodeFunc<number, [type: NumericType]> = (value, type) => 
 		typed_arr_constructor = typed_array_constructor_of(t + s + (e || "") as `${NumericFormatType}${1 | 2 | 4 | 8}${NumericEndianType}`),
 		bytesize = parseInt(s) as (1 | 2 | 4 | 8),
 		is_native_endian = (e === "l" && env_le) || (e === "b" && !env_le) || bytesize === 1 ? true : false,
-		buf = typed_arr_constructor.of(value)
+		buf = new Uint8Array(typed_arr_constructor.of(value).buffer)
 	if (!is_native_endian) buf.reverse()
-	return new Uint8Array(buf.buffer)
+	return buf
 }
 
 /** @notExported */

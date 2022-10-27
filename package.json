@@ -4,11 +4,14 @@
   "description": "a schema based serializer for primitive javascript types with no dependencies.",
   "main": "index.js",
   "scripts": {
-    "build": "node ./scripts/build.mjs",
+    "build": "npm run build-dist",
+    "build-dist": "node ./scripts/build-dist.mjs",
     "build-docs": "node ./scripts/build-docs.mjs",
-    "clean": "node ./scripts/clean.js",
-    "host-docs": "node ./scripts/host.js ./docs 8000",
-    "host-demo": "node ./scripts/host.js ./demo 8000",
+    "build-examples": "node ./scripts/build-examples.mjs",
+    "build-site": "npm run build-examples && npm run build-docs && npm run build-dist",
+    "clean-builds": "node ./scripts/clean-builds.mjs",
+    "host-docs": "node ./scripts/host.mjs ./docs 8000",
+    "host-examples": "node ./scripts/host.mjs ./dist/examples 8000",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

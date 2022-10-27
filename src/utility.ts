@@ -1,7 +1,13 @@
+import { SchemaNode } from "./schema_codec"
+
 declare const [DEBUG, MINIFY, BUNDLE]: [boolean, boolean, boolean]
 
+/** get the constructor function of type `T` */
+export type ConstructorOf<T> = new (...args: any[]) => T
+
 /** turn optional properties `K` of interface `I` into required */
-export type Require<I, K extends keyof I> = I & Required<Pick<I, K>>
+export type Require<T, P extends keyof T> = Omit<T, P> & Required<Pick<T, P>>
+//export type Require<I, K extends keyof I> = I & Required<Pick<I, K>>
 
 /** represents a typical javasctipt object, something that pairs `keys` with `values` */
 export type Obj = { [key: PropertyKey]: any }
@@ -53,11 +59,75 @@ export const swapEndianessFast = (buf: Uint8Array, bytesize: number): Uint8Array
 
 /** find out if two regular, or typed arrays are element wise equal, and have the same lengths */
 export const is_identical = <T extends ([] | TypedArray)>(arr1: T, arr2: T): boolean => {
-	const len = arr1.length
-	if (arr2.length !== len) return false
+	if (arr1.length !== arr2.length) return false
+	return is_subidentical(arr1, arr2)
+}
+
+/** find out if two regular, or typed arrays are element wise equal upto the last element of the shorter of the two arrays */
+export const is_subidentical = <T extends ([] | TypedArray)>(arr1: T, arr2: T): boolean => {
+	const len = Math.min(arr1.length, arr2.length)
 	for (let i = 0; i < len; i++) if (arr1[i] !== arr2[i]) return false
 	return true
 }
+
+/** parse files based on a specific schema `S` */
+export class FileParser<S extends SchemaNode<unknown, unknown & string>> {
+	/** the html input element that provides a gateway for user file selection */
+	readonly loader_input: HTMLInputElement = document.createElement("input")
+	readonly file_reader = new FileReader()
+	/** schema to be used for encoding and decoding */
+	readonly schema: S
+	/** a list of decoded files. you can delete the entries here to save up memory */
+	loaded_data: NonNullable<S["value"]>[] = []
+
+	/**
+	 * @param schema which schema class to base the decoding and encoding on
+	 * @param attach_to where do you wish to attach the `loader_input` html element? if `undefined`, it will not get attached to the DOM. default = document.body
+	*/
+	constructor(schema: S, attach_to: HTMLElement | undefined = document.body) {
+		this.schema = schema
+		this.loader_input.type = "file"
+		this.loader_input.innerHTML = "load file"
+		this.loader_input.onchange = () => {
+			const
+				files = this.loader_input.files!,
+				len = files.length
+			for (let i = 0; i < len; i++) this.parseFile(files[i]).then(data => this.loaded_data.push(data))
+		}
+		if (attach_to instanceof HTMLElement) attach_to.appendChild(this.loader_input)
+	}
+
+	/** parse and decode the provided file */
+	parseFile(file: File) {
+		return new Promise<NonNullable<S["value"]>>((resolve, reject) => {
+			this.file_reader.readAsArrayBuffer(file)
+			this.file_reader.onload = () => resolve(this.parseBuffer(this.file_reader.result as ArrayBuffer))
+			this.file_reader.onerror = () => reject(this.file_reader.error)
+		})
+	}
+
+	/** parse and decode the provided buffer */
+	parseBuffer(buf: ArrayBuffer): NonNullable<S["value"]> {
+		let t0: number
+		if (DEBUG) t0 = Date.now()
+		const
+			bin = new Uint8Array(buf),
+			[value, bytesize] = this.schema.decode(bin, 0)
+		if (DEBUG) {
+			let t1 = Date.now()
+			console.log("loaded data: ", value)
+			console.log("parsing time: ", t1 - t0!, "ms")
+		}
+		return value
+	}
+
+	/** clear the loaded data to free memory */
+	clearLoadedData(): void {
+		while (this.loaded_data.length > 0) this.loaded_data.pop()
+	}
+}
+
+
 
 /* development helping tools. don't include in production */
 

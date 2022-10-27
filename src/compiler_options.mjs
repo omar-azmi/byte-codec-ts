@@ -2,7 +2,7 @@
  * @type {boolean}
  * @category Compiler Options
 */
-export const DEBUG = false
+export const DEBUG = true
 
 /** when true, we shall eliminate items that have no effect to the end user (although it might be useful enough for a libary developer). <br>
  * one such feature is the optional `doc` string under {@link SchemaNode}, which can come in hand for others extending your library, but not to the end browser user. <br>

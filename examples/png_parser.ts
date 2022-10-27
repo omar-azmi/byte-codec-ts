@@ -28,11 +28,22 @@ const png_chunks = class extends SArray<Obj, "record"> {
 		let total_bytesize = 0
 		while (offset + total_bytesize < buf.byteLength) {
 			const [chunk, bytesize] = super.decodeNext(buf, offset + total_bytesize)
-			chunks.push(chunk)
 			total_bytesize += bytesize
+			if (chunk["chunk_type"] === "IHDR") chunk["chunk_data"] = new data_ihdr().decode(chunk["chunk_data"], 0)[0]
+			chunks.push(chunk)
 			if (chunk["chunk_type"] === "IEND") break
 		}
 		return [chunks, total_bytesize] as [value: Obj[], bytesize: number]
+	}
+	override encode(chunks: Obj[]): Uint8Array {
+		const modified_chunks = chunks.map((chunk) => {
+			if (chunk["chunk_type"] !== "IHDR") return chunk
+			return {
+				...chunk,
+				"chunk_data": new data_ihdr().encode(chunk["chunk_data"]),
+			}
+		})
+		return super.encode(modified_chunks)
 	}
 }
 
@@ -61,11 +72,6 @@ export const png_schema = class extends SRecord {
 				.setArgs(8),
 			new png_chunks().setName("chunks"),
 		)
-	}
-	override decode(buf: Uint8Array, offset: number) {
-		const [value, bytesize] = super.decode(buf, offset)
-		value["header"] = new data_ihdr().decode(value["chunks"][0]["chunk_data"], 0)[0]
-		return [value, bytesize] as [value: Obj, bytesize: number]
 	}
 }
 

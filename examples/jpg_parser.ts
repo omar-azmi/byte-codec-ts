@@ -1,7 +1,7 @@
 import { SArray, SEnum, SEnumEntry, SPrimitive, SRecord } from "../src/schema_codec"
-import { concat, FileParser, Obj } from "../src/utility"
+import { concat, FileParser } from "../src/utility"
 
-const delimeter = class extends SEnum {
+class delimeter extends SEnum {
 	constructor() {
 		super(
 			new SEnumEntry("SOI", [0xFF, 0xD8]), // Start Of Image
@@ -15,11 +15,12 @@ const delimeter = class extends SEnum {
 			new SEnumEntry("COM", [0xFF, 0xFE]), // COMment
 			...(new start_of_frame_marker().children),
 			...(new app_marker().children),
+			...(new restart_marker().children),
 		)
 	}
 }
 
-const app_marker = class extends SEnum {
+class app_marker extends SEnum {
 	constructor() {
 		super(
 			new SEnumEntry("APP0", [0xFF, 0xE0]), // if (len >= 14) JFIF, else if (len >= 6) JFXX, else AVI MJPEG
@@ -42,7 +43,13 @@ const app_marker = class extends SEnum {
 	}
 }
 
-const jpg_segment = class extends SRecord {
+type jpg_segment_type = {
+	marker: NonNullable<delimeter["value"]>,
+	length: number,
+	data: Uint8Array,
+}
+
+class jpg_segment extends SRecord<jpg_segment_type> {
 	constructor() {
 		super()
 		this.pushChildren(
@@ -51,15 +58,15 @@ const jpg_segment = class extends SRecord {
 			new SPrimitive("bytes").setName("data"),
 		)
 	}
-	decode(buf: Uint8Array, offset: number): [value: Obj, bytesize: number] {
+	decode(buf: Uint8Array, offset: number): [value: jpg_segment_type, bytesize: number] {
 		const [{ marker }, s0] = super.decode(buf, offset, 0, 1)
 		if (marker === "SOI" || marker === "EOI") return [{ marker, length: 0, data: new Uint8Array() }, s0]
 		const [{ length }, s1] = super.decode(buf, offset + s0, 1, 2)
 		this.children[2].setArgs(length - s1)
 		const [{ data }, s2] = super.decode(buf, offset + s0 + s1, 2, 3)
-		return [{ marker, length, data }, s0 + s1 + s2]
+		return [{ marker, length, data, }, s0 + s1 + s2]
 	}
-	encode(value: Obj): Uint8Array {
+	encode(value: jpg_segment_type): Uint8Array {
 		const marker = value.marker
 		if (marker === "SOI" || marker === "EOI") return super.encode(value, 0, 1)
 		// we could easily handle "ECS" here, but then this `encode` and `decode` pair of functions will no longer be bijective. so we leave the "ECS" handling to the parent `jpg_schema`
@@ -67,7 +74,7 @@ const jpg_segment = class extends SRecord {
 	}
 }
 
-const jpg_schema = class extends SArray<Obj, "record"> {
+class jpg_schema extends SArray<jpg_segment> {
 	entroy_coded_segment?: Uint8Array
 	constructor() {
 		super(new jpg_segment())
@@ -82,8 +89,8 @@ const jpg_schema = class extends SArray<Obj, "record"> {
 		}
 		return concat(...bytes)
 	}
-	override decode(buf: Uint8Array, offset: number): [value: Obj[], bytesize: number] {
-		const segments: Obj[] = []
+	override decode(buf: Uint8Array, offset: number): [value: jpg_segment_type[], bytesize: number] {
+		const segments: jpg_segment_type[] = []
 		let total_bytesize = 0
 		while (offset + total_bytesize < buf.byteLength) {
 			const [segment, bytesize] = super.decodeNext(buf, offset + total_bytesize)
@@ -104,7 +111,7 @@ const jpg_schema = class extends SArray<Obj, "record"> {
 	}
 }
 
-const start_of_frame_marker = class extends SEnum {
+class start_of_frame_marker extends SEnum {
 	constructor() {
 		super(
 			new SEnumEntry("Baseline", [0xFF, 0xC0]), // Baseline jpeg
@@ -130,7 +137,7 @@ const start_of_frame_marker = class extends SEnum {
 	}
 }
 
-const restart_marker = class extends SEnum {
+class restart_marker extends SEnum {
 	constructor() {
 		super(
 			new SEnumEntry("RST0", [0xFF, 0xD0]),
@@ -146,5 +153,5 @@ const restart_marker = class extends SEnum {
 }
 
 export const jpg_file_parser = new FileParser(new jpg_schema())
-window.jpg_file_parser = jpg_file_parser
+Object.assign(window, { jpg_file_parser })
 export default jpg_file_parser

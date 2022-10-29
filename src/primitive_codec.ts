@@ -3,6 +3,8 @@
  * @module
 */
 
+declare const [DEBUG, MINIFY, BUNDLE]: [boolean, boolean, boolean]
+declare const [DONOT_BOOLEAN, DONOT_CSTR, DONOT_STR, DONOT_BYTES, DONOT_NUMBER, DONOT_UVAR, DONOT_IVAR]: false[]
 import { concat, getEnvironmentEndianess, swapEndianessFast, TypedArray, TypedArrayConstructor } from "./utility"
 
 /** unsigned integer, signed integer, or IEEE-754 float */
@@ -146,123 +148,149 @@ export const decode = (type: PrimitiveType, buf: Uint8Array, offset: number, ...
 }
 
 /** @notExported */
-const encode_bool: EncodeFunc<boolean> = (value) => Uint8Array.of(value ? 1 : 0)
+const encode_bool: EncodeFunc<boolean> = DONOT_BOOLEAN || (
+	(value) => Uint8Array.of(value ? 1 : 0)
+)
 
 /** @notExported */
-const decode_bool: DecodeFunc<boolean> = (buf, offset = 0) => [buf[offset] >= 1 ? true : false, 1]
+const decode_bool: DecodeFunc<boolean> = DONOT_BOOLEAN || (
+	(buf, offset = 0) => [buf[offset] >= 1 ? true : false, 1]
+)
 
 /** @notExported */
-const encode_cstr: EncodeFunc<string> = (value) => txt_encoder.encode(value + "\u0000")
+const encode_cstr: EncodeFunc<string> = DONOT_CSTR || (
+	(value) => txt_encoder.encode(value + "\u0000")
+)
 
 /** @notExported */
-const decode_cstr: DecodeFunc<string> = (buf, offset = 0) => {
-	const
-		offset_end = buf.indexOf(0x00, offset),
-		txt_arr = buf.subarray(offset, offset_end),
-		value = txt_decoder.decode(txt_arr)
-	return [value, txt_arr.length + 1]
-}
+const decode_cstr: DecodeFunc<string> = DONOT_CSTR || (
+	(buf, offset = 0) => {
+		const
+			offset_end = buf.indexOf(0x00, offset),
+			txt_arr = buf.subarray(offset, offset_end),
+			value = txt_decoder.decode(txt_arr)
+		return [value, txt_arr.length + 1]
+	}
+)
 
 /** @notExported */
-const encode_str: EncodeFunc<string> = (value) => txt_encoder.encode(value)
+const encode_str: EncodeFunc<string> = DONOT_STR || (
+	(value) => txt_encoder.encode(value)
+)
 
 /** @notExported */
-const decode_str: DecodeFunc<string, [bytesize?: number]> = (buf, offset = 0, bytesize?) => {
-	const
-		offset_end = bytesize === undefined ? undefined : offset + bytesize,
-		txt_arr = buf.subarray(offset, offset_end),
-		value = txt_decoder.decode(txt_arr)
-	return [value, txt_arr.length]
-}
+const decode_str: DecodeFunc<string, [bytesize?: number]> = DONOT_STR || (
+	(buf, offset = 0, bytesize?) => {
+		const
+			offset_end = bytesize === undefined ? undefined : offset + bytesize,
+			txt_arr = buf.subarray(offset, offset_end),
+			value = txt_decoder.decode(txt_arr)
+		return [value, txt_arr.length]
+	}
+)
 
 /** @notExported */
-const encode_bytes: EncodeFunc<Uint8Array> = (value) => value
+const encode_bytes: EncodeFunc<Uint8Array> = DONOT_BYTES || (
+	(value) => value
+)
 
 /** @notExported */
-const decode_bytes: DecodeFunc<Uint8Array, [bytesize?: number]> = (buf, offset = 0, bytesize?) => {
-	const
-		offset_end = bytesize === undefined ? undefined : offset + bytesize,
-		value = buf.slice(offset, offset_end)
-	return [value, value.length]
-}
+const decode_bytes: DecodeFunc<Uint8Array, [bytesize?: number]> = DONOT_BYTES || (
+	(buf, offset = 0, bytesize?) => {
+		const
+			offset_end = bytesize === undefined ? undefined : offset + bytesize,
+			value = buf.slice(offset, offset_end)
+		return [value, value.length]
+	}
+)
 
 /** get a typed array constructor by specifying the type as a string
  * @notExported
 */
-const typed_array_constructor_of = (type: `${NumericFormatType}${Exclude<ByteSize, "v">}${string}`): TypedArrayConstructor => {
-	if (type[2] === "c") return Uint8ClampedArray
-	type = type[0] + type[1] as typeof type // this is to trim excessive tailing characters
-	switch (type as `${NumericFormatType}${Exclude<ByteSize, "v">}`) {
-		case "u1": return Uint8Array
-		case "u2": return Uint16Array
-		case "u4": return Uint32Array
-		case "u8": return BigUint64Array
-		case "i1": return Int8Array
-		case "i2": return Int16Array
-		case "i4": return Int32Array
-		case "i8": return BigInt64Array
-		case "f4": return Float32Array
-		case "f8": return Float64Array
-		default: {
-			Error("an unrecognized typed array type `\"${type}\"` was provided")
-			return Uint8Array
+const typed_array_constructor_of = DONOT_NUMBER || (
+	(type: `${NumericFormatType}${Exclude<ByteSize, "v">}${string}`): TypedArrayConstructor => {
+		if (type[2] === "c") return Uint8ClampedArray
+		type = type[0] + type[1] as typeof type // this is to trim excessive tailing characters
+		switch (type as `${NumericFormatType}${Exclude<ByteSize, "v">}`) {
+			case "u1": return Uint8Array
+			case "u2": return Uint16Array
+			case "u4": return Uint32Array
+			case "u8": return BigUint64Array
+			case "i1": return Int8Array
+			case "i2": return Int16Array
+			case "i4": return Int32Array
+			case "i8": return BigInt64Array
+			case "f4": return Float32Array
+			case "f8": return Float64Array
+			default: {
+				Error("an unrecognized typed array type `\"${type}\"` was provided")
+				return Uint8Array
+			}
 		}
 	}
-}
+)
 
 /** @notExported */
-const encode_number_array: EncodeFunc<number[], [type: NumericArrayType]> = (value, type) => {
-	const
-		typed_arr_constructor = typed_array_constructor_of(type),
-		[t, s, e] = type,
-		bytesize = parseInt(s) as (1 | 2 | 4 | 8),
-		is_native_endian = (e === "l" && env_le) || (e === "b" && !env_le) || bytesize === 1 ? true : false,
-		typed_arr: TypedArray = typed_arr_constructor.from(value)
-	if (typed_arr instanceof Uint8Array) return typed_arr
-	const buf = new Uint8Array(typed_arr.buffer)
-	if (is_native_endian) return buf
-	else return swapEndianessFast(buf, bytesize)
-}
+const encode_number_array: EncodeFunc<number[], [type: NumericArrayType]> = DONOT_NUMBER || (
+	(value, type) => {
+		const
+			typed_arr_constructor = typed_array_constructor_of(type),
+			[t, s, e] = type,
+			bytesize = parseInt(s) as (1 | 2 | 4 | 8),
+			is_native_endian = (e === "l" && env_le) || (e === "b" && !env_le) || bytesize === 1 ? true : false,
+			typed_arr: TypedArray = typed_arr_constructor.from(value)
+		if (typed_arr instanceof Uint8Array) return typed_arr
+		const buf = new Uint8Array(typed_arr.buffer)
+		if (is_native_endian) return buf
+		else return swapEndianessFast(buf, bytesize)
+	}
+)
 
 /** @notExported */
-const decode_number_array: DecodeFunc<number[], [type: NumericArrayType, array_length?: number]> = (buf, offset = 0, type, array_length?) => {
-	const
-		[t, s, e] = type,
-		bytesize = parseInt(s) as (1 | 2 | 4 | 8),
-		is_native_endian = (e === "l" && env_le) || (e === "b" && !env_le) || bytesize === 1 ? true : false,
-		bytelength = array_length ? bytesize * array_length : undefined,
-		array_buf = buf.slice(offset, bytelength ? offset + bytelength : undefined),
-		array_bytesize = array_buf.length,
-		typed_arr_constructor = typed_array_constructor_of(type),
-		typed_arr: TypedArray = new typed_arr_constructor(is_native_endian ? array_buf.buffer : swapEndianessFast(array_buf, bytesize).buffer)
-	return [Array.from(typed_arr), array_bytesize]
-}
+const decode_number_array: DecodeFunc<number[], [type: NumericArrayType, array_length?: number]> = DONOT_NUMBER || (
+	(buf, offset = 0, type, array_length?) => {
+		const
+			[t, s, e] = type,
+			bytesize = parseInt(s) as (1 | 2 | 4 | 8),
+			is_native_endian = (e === "l" && env_le) || (e === "b" && !env_le) || bytesize === 1 ? true : false,
+			bytelength = array_length ? bytesize * array_length : undefined,
+			array_buf = buf.slice(offset, bytelength ? offset + bytelength : undefined),
+			array_bytesize = array_buf.length,
+			typed_arr_constructor = typed_array_constructor_of(type),
+			typed_arr: TypedArray = new typed_arr_constructor(is_native_endian ? array_buf.buffer : swapEndianessFast(array_buf, bytesize).buffer)
+		return [Array.from(typed_arr), array_bytesize]
+	}
+)
 
 /** @notExported */
-const encode_number: EncodeFunc<number, [type: NumericType]> = (value, type) => {
-	const [t, s, e] = type
-	if (s === "v") return t === "u" ? encode_uvar(value) : encode_ivar(value)
-	const
-		typed_arr_constructor = typed_array_constructor_of(t + s + (e || "") as `${NumericFormatType}${1 | 2 | 4 | 8}${NumericEndianType}`),
-		bytesize = parseInt(s) as (1 | 2 | 4 | 8),
-		is_native_endian = (e === "l" && env_le) || (e === "b" && !env_le) || bytesize === 1 ? true : false,
-		buf = new Uint8Array(typed_arr_constructor.of(value).buffer)
-	if (!is_native_endian) buf.reverse()
-	return buf
-}
+const encode_number: EncodeFunc<number, [type: NumericType]> = DONOT_NUMBER || (
+	(value, type) => {
+		const [t, s, e] = type
+		if (s === "v") return t === "u" ? encode_uvar(value) : encode_ivar(value)
+		const
+			typed_arr_constructor = typed_array_constructor_of(t + s + (e || "") as `${NumericFormatType}${1 | 2 | 4 | 8}${NumericEndianType}`),
+			bytesize = parseInt(s) as (1 | 2 | 4 | 8),
+			is_native_endian = (e === "l" && env_le) || (e === "b" && !env_le) || bytesize === 1 ? true : false,
+			buf = new Uint8Array(typed_arr_constructor.of(value).buffer)
+		if (!is_native_endian) buf.reverse()
+		return buf
+	}
+)
 
 /** @notExported */
-const decode_number: DecodeFunc<number, [type: NumericType]> = (buf, offset = 0, type) => {
-	const [t, s, e] = type
-	if (s === "v") return t === "u" ? decode_uvar(buf, offset) : decode_ivar(buf, offset)
-	const
-		typed_arr_constructor = typed_array_constructor_of(t + s + (e || "") as `${NumericFormatType}${1 | 2 | 4 | 8}${NumericEndianType}`),
-		bytesize = parseInt(s) as (1 | 2 | 4 | 8),
-		is_native_endian = (e === "l" && env_le) || (e === "b" && !env_le) || bytesize === 1 ? true : false,
-		number_buf = buf.slice(offset, offset + bytesize)
-	if (!is_native_endian) number_buf.reverse()
-	return [Number(new typed_arr_constructor(number_buf.buffer)[0]), bytesize]
-}
+const decode_number: DecodeFunc<number, [type: NumericType]> = DONOT_NUMBER || (
+	(buf, offset = 0, type) => {
+		const [t, s, e] = type
+		if (s === "v") return t === "u" ? decode_uvar(buf, offset) : decode_ivar(buf, offset)
+		const
+			typed_arr_constructor = typed_array_constructor_of(t + s + (e || "") as `${NumericFormatType}${1 | 2 | 4 | 8}${NumericEndianType}`),
+			bytesize = parseInt(s) as (1 | 2 | 4 | 8),
+			is_native_endian = (e === "l" && env_le) || (e === "b" && !env_le) || bytesize === 1 ? true : false,
+			number_buf = buf.slice(offset, offset + bytesize)
+		if (!is_native_endian) number_buf.reverse()
+		return [Number(new typed_arr_constructor(number_buf.buffer)[0]), bytesize]
+	}
+)
 
 /** `uvar` stands for unsigned variable-sized integer <br>
  * this number occupies a variable number of bytes to accomodate the integer that it's holding <br>
@@ -281,32 +309,36 @@ const decode_number: DecodeFunc<number, [type: NumericType]> = (buf, offset = 0,
  * this encoding is especially useful for encoding the length of other variables as in their header (begining of their sequence)
  * @notExported
 */
-const encode_uvar: EncodeFunc<number | bigint> = (value) => {
-	value = BigInt(value) * (value >= 0 ? 1n : -1n) // converting to absolute value
-	const lsb_to_msb: number[] = []
-	do {
-		lsb_to_msb.push(Number((value & 0b01111111n) + 0b10000000n))
-		value >>= 7n
-	} while (value > 0n)
-	lsb_to_msb[0] &= 0b01111111
-	return Uint8Array.from(lsb_to_msb.reverse())
-}
+const encode_uvar: EncodeFunc<number | bigint> = DONOT_UVAR || (
+	(value) => {
+		value = BigInt(value) * (value >= 0 ? 1n : -1n) // converting to absolute value
+		const lsb_to_msb: number[] = []
+		do {
+			lsb_to_msb.push(Number((value & 0b01111111n) + 0b10000000n))
+			value >>= 7n
+		} while (value > 0n)
+		lsb_to_msb[0] &= 0b01111111
+		return Uint8Array.from(lsb_to_msb.reverse())
+	}
+)
 
 /** @see {@link encode_uvar}
  * @notExported
 */
-const decode_uvar: DecodeFunc<number> = (buf, offset = 0) => {
-	const offset_start = offset
-	let
-		byte: number,
-		value: bigint = 0n
-	do {
-		byte = buf[offset++]
-		value <<= 7n
-		value += BigInt(byte & 0b01111111)
-	} while (byte >> 7 == 1)
-	return [Number(value), offset - offset_start]
-}
+const decode_uvar: DecodeFunc<number> = DONOT_UVAR || (
+	(buf, offset = 0) => {
+		const offset_start = offset
+		let
+			byte: number,
+			value: bigint = 0n
+		do {
+			byte = buf[offset++]
+			value <<= 7n
+			value += BigInt(byte & 0b01111111)
+		} while (byte >> 7 == 1)
+		return [Number(value), offset - offset_start]
+	}
+)
 
 /** `ivar` stands for signed variable-sized integer <br>
  * it's similar to `uvar`, except that in the first byte, the second-major bit `Z` of the octet (0b0ZYYYYYY), signals whether the number is positive (Z == 0), or negative (Z == 1) <br>
@@ -321,36 +353,40 @@ const decode_uvar: DecodeFunc<number> = (buf, offset = 0) => {
  * <br>
  * @notExported
 */
-const encode_ivar: EncodeFunc<number | bigint> = (value) => {
-	const
-		sign = value >= 0 ? 1n : -1n,
-		lsb_to_msb: number[] = []
-	value = BigInt(value) * sign // `val` is now positive
-	while (value > 0b00111111n) {
-		lsb_to_msb.push(Number((value & 0b01111111n) + 0b10000000n))
-		value >>= 7n
+const encode_ivar: EncodeFunc<number | bigint> = DONOT_IVAR || (
+	(value) => {
+		const
+			sign = value >= 0 ? 1n : -1n,
+			lsb_to_msb: number[] = []
+		value = BigInt(value) * sign // `val` is now positive
+		while (value > 0b00111111n) {
+			lsb_to_msb.push(Number((value & 0b01111111n) + 0b10000000n))
+			value >>= 7n
+		}
+		lsb_to_msb.push(Number((value & 0b00111111n) | (sign == -1n ? 0b11000000n : 0b10000000n)))
+		lsb_to_msb[0] &= 0b01111111
+		return Uint8Array.from(lsb_to_msb.reverse())
 	}
-	lsb_to_msb.push(Number((value & 0b00111111n) | (sign == -1n ? 0b11000000n : 0b10000000n)))
-	lsb_to_msb[0] &= 0b01111111
-	return Uint8Array.from(lsb_to_msb.reverse())
-}
+)
 
 /** @see {@link encode_ivar}
  * @notExported
 */
-const decode_ivar: DecodeFunc<number> = (buf, offset = 0) => {
-	const offset_start = offset
-	let
-		byte: number = buf[offset++],
-		sign: bigint = (byte & 0b01000000) > 0n ? -1n : 1n,
-		value: bigint = BigInt(byte & 0b00111111)
-	while (byte >> 7 == 1) {
-		byte = buf[offset++]
-		value <<= 7n
-		value += BigInt(byte & 0b01111111)
+const decode_ivar: DecodeFunc<number> = DONOT_IVAR || (
+	(buf, offset = 0) => {
+		const offset_start = offset
+		let
+			byte: number = buf[offset++],
+			sign: bigint = (byte & 0b01000000) > 0n ? -1n : 1n,
+			value: bigint = BigInt(byte & 0b00111111)
+		while (byte >> 7 == 1) {
+			byte = buf[offset++]
+			value <<= 7n
+			value += BigInt(byte & 0b01111111)
+		}
+		value *= sign
+		return [Number(value), offset - offset_start]
 	}
-	value *= sign
-	return [Number(value), offset - offset_start]
-}
+)
 
 export default { encode, decode, encodeSeq, decodeSeq, writeTo, readFrom }

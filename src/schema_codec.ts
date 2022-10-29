@@ -3,13 +3,12 @@
  * @module
 */
 
-import { concat, ConstructorOf, Require, Obj, is_subidentical } from "./utility"
-import { encode as encodeP, decode as decodeP, JSPrimitive, PrimitiveType } from "./primitive_codec"
-
+import { decode as decodeP, encode as encodeP, JSPrimitive, PrimitiveType } from "./primitive_codec"
+import { ClassFieldsOf, concat, ConstructorOf, Require } from "./utility"
 
 export type JSSimpleTypes = JSPrimitive | JSSimpleTypes[] | { [name: PropertyKey]: JSSimpleTypes }
 
-export type SchemaArgs<S extends SchemaNode<any, any>> = S["args"] extends [] ? S["args"] : []
+export type SchemaArgs<S extends SchemaChildNode> = S["args"] extends [] ? NonNullable<S["args"]> : []
 
 /** encoding signature for schema node */
 export type EncodeSchemaFunc<S extends SchemaNode<any, any>> = (this: S, value: NonNullable<S["value"]>, ...args: SchemaArgs<S>) => Uint8Array
@@ -18,11 +17,11 @@ export type EncodeSchemaFunc<S extends SchemaNode<any, any>> = (this: S, value: 
 export type DecodeSchemaFunc<S extends SchemaNode<any, any>> = (this: S, buffer: Uint8Array, offset: number, ...args: SchemaArgs<S>) => [value: NonNullable<S["value"]>, bytesize: number]
 
 /** create a schema class instance based off of a simple javascript object */
-export type MakeSchemaFrom<S extends SchemaNode<any, any>> = (schema_obj: Obj & { type: S["type"] }) => S
+export type MakeSchemaFrom<S extends SchemaNode<any, string>> = (schema_obj: { [key: string]: any } & { type: S["type"] }) => S
 
 const type_registry: Record<
 	string, // schema type name
-	ConstructorOf<SchemaNode<any, any>> // schema class
+	SchemaNodeConstructor<any> // schema class
 > = {}
 
 export const encodeS = <T extends any, TypeName extends string>(schema: SchemaNode<T, TypeName>, value: NonNullable<T>) => schema.encode(value)
@@ -33,7 +32,13 @@ export const makeS = <T extends any, TypeName extends string, S extends SchemaNo
 	// TODO find a good way to manage constructor parameters across different schema types
 	// return new type_registry[schema_obj.type]()
 	// return Object.setPrototypeOf(schema_obj, type_registry[schema_obj.type])
-	return (type_registry[schema_obj.type].from as MakeSchemaFrom<S>)(schema_obj)
+	return type_registry[schema_obj.type].from(schema_obj)
+}
+
+export interface SchemaChildNode<T extends any = any, TypeName extends string = string> extends SchemaNode<T, TypeName> { }
+
+export interface SchemaNodeConstructor<S extends SchemaNode<any, string>> extends ConstructorOf<S> {
+	from(schema_obj: ClassFieldsOf<S>): S
 }
 
 /** an abstract and un-typed `SchemaNode` for the sake of creating an inheritance tree */
@@ -43,7 +48,10 @@ export abstract class SchemaNode<T extends any, TypeName extends string> {
 	/** describe bytes from a buffer should decode a value for this schema node */
 	abstract decode(buffer: Uint8Array, offset: number, ...args: SchemaArgs<this>): [value: NonNullable<this["value"]>, bytesize: number]
 	/** an abstract static method that creates an instance of `this` schema class, using a regular javascript object */
-	static from: MakeSchemaFrom<any>
+	static from: SchemaNodeConstructor<any>["from"] = (schema_obj: ClassFieldsOf<any>) => {
+		console.error("tried to create schema from `Object`: ", schema_obj)
+		throw new Error("abstract `SchemaNode` class cannot create schema instances")
+	}
 	/** a mandatory kind descriptior of the primitive kind */
 	type: TypeName
 	/** the value held by this schema node. used as a storage for interceptors to interact and read decoded value <br>
@@ -57,7 +65,7 @@ export abstract class SchemaNode<T extends any, TypeName extends string> {
 	/** an array collection of child element.
 	 * typically used by non-leaf nodes, such as {@link SchemaRecordNode} and {@link SchemaTupleNode}
 	*/
-	children?: SchemaNode<any, any>[]
+	children?: SchemaChildNode<any, string>[]
 	/** args that should be passed on to either the `type` specific encoder or decoder */
 	args?: any[]
 	/** an optional doc string for this schema node, that should be cleared when {@link compiler_options.MINIFY} is `true` <br>
@@ -74,33 +82,33 @@ export abstract class SchemaNode<T extends any, TypeName extends string> {
 
 	constructor(type: TypeName, value?: T, args?: any[]) {
 		this.type = type
-		if (!(type in type_registry)) type_registry[type] = this.constructor as ConstructorOf<this>
+		if (!(type in type_registry)) type_registry[type] = this.constructor as SchemaNodeConstructor<this>
 		if (value) this.setValue(value)
 		if (args) this.setArgs(args)
 	}
 
-	setName = (name: string): Require<this, "name"> => {
+	setName<Name extends NonNullable<this["name"]>>(name: Name): this & { name: Name } {
 		this.name = name
-		return this as Require<this, "name">
+		return this as this & { name: Name }
 	}
 
-	pushChildren = (...children: NonNullable<this["children"]>): Require<this, "children"> => {
+	pushChildren(...children: NonNullable<this["children"]>): Require<this, "children"> {
 		if (this.children === undefined) this.children = []
 		this.children.push(...children)
 		return this as Require<this, "children">
 	}
 
-	setValue = (value: this["value"]) => {
+	setValue(value: NonNullable<this["value"]>): Require<this, "value"> {
 		this.value = value
-		return this
+		return this as Require<this, "value">
 	}
 
-	setArgs = (...args: NonNullable<this["args"]>) => {
+	setArgs(...args: NonNullable<this["args"]>) {
 		if (args) this.args = args
 		return this
 	}
 
-	pushArgs = (...args: NonNullable<this["args"]>) => {
+	pushArgs(...args: NonNullable<this["args"]>) {
 		if (args) {
 			if (this.args === undefined) this.args = []
 			this.args.push(args)
@@ -119,33 +127,40 @@ export class SPrimitive<T extends JSPrimitive = any, TypeName extends PrimitiveT
 	constructor(type: TypeName, default_value?: T, default_args?: any[]) {
 		super(type, default_value, default_args)
 	}
-	static override from: MakeSchemaFrom<SPrimitive<JSPrimitive, PrimitiveType>> = (schema_obj) => new this(schema_obj.type, schema_obj.value, schema_obj.args)
+	static override from(schema_obj: ClassFieldsOf<SPrimitive>): SPrimitive {
+		return new this(schema_obj.type, schema_obj.value, schema_obj.args)
+	}
 	override encode(value: T, ...args: any[]) {
 		return encodeP(this.type, value, ...(args.length > 0 ? args : this.args))
 	}
-	override decode(buf: Uint8Array, offset: number, ...args: Parameters<typeof encodeP>[2]) {
+	override decode(buf: Uint8Array, offset: number, ...args: this["args"]) {
 		return decodeP(this.type, buf, offset, ...(args.length > 0 ? args : this.args)) as [value: T, bytesize: number]
 	}
 }
 
+export interface SRecordChild<Name extends string, T extends any = any, TypeName extends string = string> extends SchemaChildNode<T, TypeName> {
+	name: Name
+	value?: T
+}
+
 /** a schema node for nested record-like javascript object types */
-export class SRecord extends SchemaNode<Obj, "record"> {
+export class SRecord<REC extends { [key: string]: any } = { [key: string]: any }> extends SchemaNode<REC, "record"> {
 	declare type: "record"
-	declare value?: Obj
-	children: Require<SchemaNode<any, any>, "name">[] = []
+	children: SRecordChild<keyof REC & string, REC[keyof REC]>[] = []
 	args: [child_start?: number, child_end?: number] = []
 
-	constructor() {
+	constructor(...children: SRecordChild<keyof REC & string, REC[keyof REC]>[]) {
 		super("record")
+		if (children.length > 0) this.pushChildren(...children)
 	}
-	static override from: MakeSchemaFrom<SRecord> = (schema_obj) => {
+	static override from(schema_obj: ClassFieldsOf<SRecord>) {
 		const
 			new_schema = new this(),
 			children: { type: string, name: string }[] = schema_obj.children
 		for (const child of children) new_schema.pushChildren(makeS(child).setName(child.name))
 		return new_schema
 	}
-	override encode(value: Obj, ...args: [child_start?: number, child_end?: number]) {
+	override encode(value: NonNullable<this["value"]>, ...args: [child_start?: number, child_end?: number]) {
 		const
 			bytes: Uint8Array[] = [],
 			child_start = args[0] || this.args[0] || 0,
@@ -159,7 +174,7 @@ export class SRecord extends SchemaNode<Obj, "record"> {
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: [child_start?: number, child_end?: number]) {
 		const
-			record: typeof this["value"] = {},
+			record: Partial<NonNullable<this["value"]>> = {},
 			child_start = args[0] || this.args[0] || 0,
 			child_end = args[1] || this.args[1] || this.children.length
 		let total_bytesize = 0
@@ -170,7 +185,7 @@ export class SRecord extends SchemaNode<Obj, "record"> {
 			total_bytesize += bytesize
 			record[child.name] = value
 		}
-		return [record, total_bytesize] as [value: Obj, bytesize: number]
+		return [record, total_bytesize] as [value: REC, bytesize: number]
 	}
 	/** an iterator to decode child schemas sequentially as needed
 	*decodeIter(buf: Uint8Array, offset: number, initial_number_of_items: number = 1): Generator<
@@ -205,7 +220,7 @@ export class STuple extends SchemaNode<any[], "tuple"> {
 	constructor() {
 		super("tuple")
 	}
-	static override from: MakeSchemaFrom<STuple> = (schema_obj) => {
+	static override from(schema_obj: ClassFieldsOf<STuple>) {
 		const
 			new_schema = new this(),
 			children: { type: string }[] = schema_obj.children
@@ -238,30 +253,29 @@ export class STuple extends SchemaNode<any[], "tuple"> {
 }
 
 /** a schema node for an array of a single type */
-export class SArray<ItemType extends object, ItemTypeName extends string> extends SchemaNode<ItemType[], "array"> {
+export class SArray<ItemSchema extends SchemaChildNode, ItemType = NonNullable<ItemSchema["value"]>> extends SchemaNode<ItemType[], "array"> {
 	declare type: "array"
-	declare value?: ItemType[]
 	/** there must be only a single child element that specifies the schema of the kind of items held by this array */
-	declare children: [item_schema: SchemaNode<ItemType, ItemTypeName>,]
+	declare children: [item_schema: ItemSchema,]
 	/** there are two possible syntaxes, and the one that gets chosen is based on the length of `this.args`
 	 * - if `args.length == 1`, then: `args[0]` must specify the length of the array when decoding
 	 * - if `args.length == 2`, then: `args[0]` must specify the starting index, and `args[1]` must specify the ending index
 	*/
 	args:
-		| [index_start?: number, index_end?: number,]
+		| [index_start: number, index_end: number,]
 		| [len?: number,]
 		= []
 
-	constructor(child?: SchemaNode<ItemType, ItemTypeName>, array_length?: number) {
+	constructor(child?: ItemSchema, array_length?: number) {
 		super("array")
 		if (child) this.pushChildren(child)
 		if (array_length) this.setArgs(0, array_length)
 	}
-	static override from: MakeSchemaFrom<SArray<any, string>> = (schema_obj) => {
+	static override from(schema_obj: ClassFieldsOf<SArray<SchemaChildNode>>) {
 		const
 			child: { type: string } = schema_obj.children[0],
-			len: number = schema_obj.args ? schema_obj.args[0] : undefined,
-			new_schema = new this(makeS(child) as SchemaNode<any, any>, len)
+			len: number | undefined = schema_obj.args ? schema_obj.args[0] : undefined,
+			new_schema = new this(makeS(child), len)
 		return new_schema
 	}
 	override encode(value: ItemType[], ...args: [index_start?: number, index_end?: number]) {
@@ -270,12 +284,12 @@ export class SArray<ItemType extends object, ItemTypeName extends string> extend
 			item_schema = this.children[0],
 			index_start = args[0] || this.args[0] || 0, // `this.args[0]` should equal to `index_start` when decoding
 			index_end = args[1] || this.args[1] || value.length // `this.args[1]` should equal to `index_end` when decoding
-		for (let i = index_start; i < index_end; i++) bytes.push(item_schema.encode(value[i]))
+		for (let i = index_start; i < index_end; i++) bytes.push(item_schema.encode(value[i]!))
 		return concat(...bytes)
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: [index_start?: number, index_end?: number] | [len?: number,]) {
 		const
-			arr: typeof this["value"] = [],
+			arr: NonNullable<this["value"]> = [],
 			item_schema = this.children[0]
 		let
 			total_bytesize = 0,
@@ -301,7 +315,7 @@ export class SArray<ItemType extends object, ItemTypeName extends string> extend
 }
 
 /** an enum entry to be used as a child of an `SEnum` schema node. this schema node's `value` must be a 2-tuple array with the first element (of type `T`) being the javascript value, and the second element (of type `Uint8Array`) being its corresponding bytes */
-export class SEnumEntry<T> extends SchemaNode<[T, Uint8Array], "enumentry"> {
+export class SEnumEntry<T extends (JSPrimitive | undefined)> extends SchemaNode<[T, Uint8Array], "enumentry"> {
 	declare type: "enumentry"
 	declare value: [T, Uint8Array]
 	constructor(enum_value: T, enum_bytes: Uint8Array | number[]) {
@@ -327,7 +341,7 @@ export class SEnumEntry<T> extends SchemaNode<[T, Uint8Array], "enumentry"> {
 		if (value !== enum_value) return false
 		return true
 	}
-	override encode(value?: T, ...args: any[]): this["value"][1] {
+	override encode(value?: T | undefined, ...args: any[]): this["value"][1] {
 		return this.value[1]
 	}
 	override decode(buffer: Uint8Array, offset: number, ...args: any[]): [value: this["value"][0], bytesize: number] {
@@ -342,7 +356,7 @@ export class SEnum extends SchemaNode<JSPrimitive, "enum"> {
 	/** each child `SEnumEntry` dictates a possible enum bytes and value pair entry */
 	declare children: SEnumEntry<JSPrimitive>[]
 	/** if no `value` or `bytes` match with any of the enum entries (`children`) then use the codec of the provided `default_schema` */
-	default_schema: SchemaNode<any, any> = new SEnumEntry(undefined, new Uint8Array())
+	default_schema: SchemaChildNode = new SEnumEntry(undefined, new Uint8Array())
 
 	constructor(...children: SEnumEntry<JSPrimitive>[]) {
 		super("enum")
@@ -355,17 +369,18 @@ export class SEnum extends SchemaNode<JSPrimitive, "enum"> {
 	getDefault(): this["default_schema"] {
 		return this.default_schema
 	}
-	override encode(value: NonNullable<this["value"]>, ...args: []) {
+	override encode(value: NonNullable<this["value"]>, ...args: any[]) {
 		for (const entry_schema of this.children)
 			if (entry_schema.matchValue(value))
 				return entry_schema.encode()
-		return this.default_schema.encode(value, ...args)
+		console.log(args)
+		return this.default_schema.encode(value, ...args as [])
 	}
-	override decode(buf: Uint8Array, offset: number, ...args: []) {
+	override decode(buf: Uint8Array, offset: number, ...args: any[]) {
 		for (const entry_schema of this.children)
 			if (entry_schema.matchBytes(buf, offset))
 				return entry_schema.decode(buf, offset)
-		return this.default_schema.decode(buf, offset, ...args)
+		return this.default_schema.decode(buf, offset, ...args as [])
 	}
 }
 

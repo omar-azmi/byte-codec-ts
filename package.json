@@ -1,33 +1,36 @@
 {
-  "name": "byte-codec-ts",
-  "version": "1.0.0",
-  "description": "a schema based serializer for primitive javascript types with no dependencies.",
-  "main": "./src/index.ts",
-  "scripts": {
-    "build": "npm run build-dist",
-    "build-dist": "node ./scripts/build-dist.mjs",
-    "build-docs": "node ./scripts/build-docs.mjs",
-    "build-examples": "node ./scripts/build-examples.mjs",
-    "build-site": "npm run build-examples && npm run build-docs && npm run build-dist",
-    "clean-builds": "node ./scripts/clean-builds.mjs",
-    "host-docs": "node ./scripts/host.mjs ./docs 8000",
-    "host-examples": "node ./scripts/host.mjs ./dist/examples 8000",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [
-    "serializer",
-    "schema",
-    "binary",
-    "codec",
-    "packing",
-    "parser"
-  ],
-  "author": "Omar Azmi",
-  "license": "Lulz plz don't steal yet",
-  "devDependencies": {
-    "esbuild": "^0.15.11",
-    "typedoc": "^0.23.16",
-    "typedoc-plugin-not-exported": "^0.1.6",
-    "typescript": "^4.8.4"
-  }
+	"name": "byte-codec-ts",
+	"version": "1.0.0",
+	"description": "a schema based serializer for primitive javascript types with no dependencies.",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"type": "module",
+	"exports": "./src/index.ts",
+	"scripts": {
+		"build": "npm run build-dist",
+		"build-dist": "node ./scripts/build-dist.mjs",
+		"build-docs": "node ./scripts/build-docs.mjs",
+		"build-examples": "node ./scripts/build-examples.mjs",
+		"build-site": "npm run build-examples && npm run build-docs && npm run build-dist",
+		"clean-builds": "node ./scripts/clean-builds.mjs",
+		"host-docs": "node ./scripts/host.mjs ./docs 8000",
+		"host-examples": "node ./scripts/host.mjs ./dist/examples 8000",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [
+		"serializer",
+		"schema",
+		"binary",
+		"codec",
+		"packing",
+		"parser"
+	],
+	"author": "Omar Azmi",
+	"license": "Lulz plz don't steal yet",
+	"devDependencies": {
+		"esbuild": "^0.15.11",
+		"typedoc": "^0.23.16",
+		"typedoc-plugin-not-exported": "^0.1.6",
+		"typescript": "^4.8.4"
+	}
 }

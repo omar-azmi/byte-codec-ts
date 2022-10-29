@@ -29,11 +29,13 @@ export {
 } from "./schema_codec"
 
 export type {
-	DecodeFunc,
-	EncodeFunc,
-	JSPrimitive,
-	PrimitiveType,
-} from "./primitive_codec"
+	DecodeSchemaFunc,
+	EncodeSchemaFunc,
+	JSSimpleTypes,
+	MakeSchemaFrom,
+	SRecordChild,
+	SchemaChildNode,
+} from "./schema_codec"
 
 export {
 	concat,
@@ -44,7 +46,7 @@ export {
 	is_subidentical,
 	FileParser,
 	to_hex_string,
-} from "./utiliy"
+} from "./utility"
 
 
 export type {
@@ -54,7 +56,7 @@ export type {
 	EmptyObj,
 	TypedArrayConstructor,
 	TypedArray,
-} from "./utiliy"
+} from "./utility"
 
 
 /*

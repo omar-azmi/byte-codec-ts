@@ -1,6 +1,5 @@
-import { SchemaNode } from "./schema_codec"
-
 declare const [DEBUG, MINIFY, BUNDLE]: [boolean, boolean, boolean]
+import { SchemaNode } from "./schema_codec"
 
 /** get the constructor function of type `T` */
 export type ConstructorOf<T> = new (...args: any[]) => T
@@ -9,6 +8,10 @@ export type ConstructorOf<T> = new (...args: any[]) => T
 export type Require<T, P extends keyof T> = Omit<T, P> & Required<Pick<T, P>>
 //export type Require<I, K extends keyof I> = I & Required<Pick<I, K>>
 
+export type OptionalKeysOf<T> = { [K in keyof T as (undefined extends T[K] ? K : never)]: T[K] }
+
+export type ClassFieldsOf<T> = { [K in keyof T as (T[K] extends Function ? never : K)]: T[K] }
+
 /** represents a typical javasctipt object, something that pairs `keys` with `values` */
 export type Obj = { [key: PropertyKey]: any }
 
@@ -16,7 +19,7 @@ export type Obj = { [key: PropertyKey]: any }
 export type EmptyObj = { [key: PropertyKey]: never }
 
 /** abstract constructor of any typed array, such as `new Uint8Array(...)` */
-export type TypedArrayConstructor = Uint8ArrayConstructor | Int8ArrayConstructor | Uint8ClampedArrayConstructor | Int16ArrayConstructor | Uint16ArrayConstructor | Int32ArrayConstructor | Uint32ArrayConstructor | Float32ArrayConstructor | Float64ArrayConstructor | BigUint64ArrayConstructor | BigInt64ArrayConstructor
+export type TypedArrayConstructor = Uint8ArrayConstructor | Int8ArrayConstructor | Uint8ClampedArrayConstructor | Int16ArrayConstructor | Uint16ArrayConstructor | Int32ArrayConstructor | Uint32ArrayConstructor | Float32ArrayConstructor | Float64ArrayConstructor
 
 /** an instance of any typed array, such as `Uint8Array` */
 export type TypedArray = Uint8Array | Int8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigUint64Array | BigInt64Array
@@ -71,7 +74,7 @@ export const is_subidentical = <T extends ([] | TypedArray)>(arr1: T, arr2: T): 
 }
 
 /** parse files based on a specific schema `S` */
-export class FileParser<S extends SchemaNode<unknown, unknown & string>> {
+export class FileParser<S extends SchemaNode<any, string>> {
 	/** the html input element that provides a gateway for user file selection */
 	readonly loader_input: HTMLInputElement = document.createElement("input")
 	readonly file_reader = new FileReader()
@@ -109,12 +112,12 @@ export class FileParser<S extends SchemaNode<unknown, unknown & string>> {
 	/** parse and decode the provided buffer */
 	parseBuffer(buf: ArrayBuffer): NonNullable<S["value"]> {
 		let t0: number
-		if (DEBUG) t0 = Date.now()
+		if (DEBUG) t0 = performance.now()
 		const
 			bin = new Uint8Array(buf),
 			[value, bytesize] = this.schema.decode(bin, 0)
 		if (DEBUG) {
-			let t1 = Date.now()
+			let t1 = performance.now()
 			console.log("loaded data: ", value)
 			console.log("parsing time: ", t1 - t0!, "ms")
 		}

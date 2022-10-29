@@ -17,5 +17,20 @@ export const MINIFY = true
 */
 export const BUNDLE = true
 
+/** define the set of primitive type codec functions not to include in your build, by setting their corresponding value to `true` <br>
+ * the items presented here cannot be automatically ommited by `esbuild`, because the exported `encode` and `decode` functions of `"./primitive_codec.ts"` do reference them. <br>
+ * only *you*, as the library utilizer, can know whether a certain portion is unused by your application. <br>
+ * the minified space savings are not really impressive. you save about only `2.5kb` if you set everything to `true` (ie, discarding all primitive codecs).
+*/
+export const DONOT_INCLUDE_PRIMITIVES = {
+	DONOT_BOOLEAN: false,
+	DONOT_CSTR: false,
+	DONOT_STR: false,
+	DONOT_BYTES: false,
+	DONOT_NUMBER: false,
+	DONOT_UVAR: false,
+	DONOT_IVAR: false,
+}
+
 //module.exports.compiler_options = { DEBUG, MINIFY, BUNDLE }
-export default { DEBUG, MINIFY, BUNDLE }
+export default { DEBUG, MINIFY, BUNDLE, ...DONOT_INCLUDE_PRIMITIVES }

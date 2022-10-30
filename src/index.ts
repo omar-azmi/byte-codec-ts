@@ -11,6 +11,7 @@ export {
 export type {
 	NumericType,
 	NumericArrayType,
+	PrimitiveArrayType,
 	PrimitiveType,
 	JSPrimitive,
 } from "./primitive_codec"
@@ -26,8 +27,8 @@ export {
 	SArray,
 	SEnumEntry,
 	SEnum,
-	SHeadPrimitive as SHeadBytes,
-	SHeadArray as SHeadLengthArray,
+	SHeadPrimitive,
+	SHeadArray,
 } from "./schema_codec"
 
 export type {
@@ -52,7 +53,6 @@ export {
 	to_hex_string,
 } from "./utility"
 
-
 export type {
 	ConstructorOf,
 	ClassFieldsOf,
@@ -65,6 +65,12 @@ export type {
 	TypedArray,
 } from "./utility"
 
+export {
+	DEBUG,
+	MINIFY,
+	BUNDLE,
+	DONOT_INCLUDE_PRIMITIVES,
+} from "./compiler_options.mjs"
 
 /*
 // TO BE DEPRECATED

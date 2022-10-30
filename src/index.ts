@@ -26,8 +26,8 @@ export {
 	SArray,
 	SEnumEntry,
 	SEnum,
-	SHeadBytes,
-	SHeadLengthArray,
+	SHeadPrimitive as SHeadBytes,
+	SHeadArray as SHeadLengthArray,
 } from "./schema_codec"
 
 export type {

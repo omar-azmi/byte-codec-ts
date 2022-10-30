@@ -61,6 +61,12 @@ export type PrimitiveType =
 	| "cstr"
 	| "bool"
 
+/** primitive types that typically require length information to be decoded */
+export type PrimitiveArrayType =
+	| NumericArrayType
+	| "bytes"
+	| "str"
+
 /** primitive javascript types */
 export type JSPrimitive = string | boolean | number | bigint | number[] | Uint8Array
 

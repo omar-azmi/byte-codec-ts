@@ -3,7 +3,7 @@
  * @module
 */
 
-import { decode as decodeP, encode as encodeP, JSPrimitive, NumericType, PrimitiveType } from "./primitive_codec"
+import { decode as decodeP, encode as encodeP, JSPrimitive, NumericType, PrimitiveArrayType, PrimitiveType } from "./primitive_codec"
 import { ClassFieldsOf, concat, ConstructorOf, Decoded, Require } from "./utility"
 
 export type JSSimpleTypes = JSPrimitive | JSSimpleTypes[] | { [name: PropertyKey]: JSSimpleTypes }
@@ -90,7 +90,7 @@ export abstract class SchemaNode<T extends any, TypeName extends string> {
 	/** manually set `this` schema's `type` to the provided `type_name`, and also
 	 * register the new `type_name` to global `type_registery` if `register = true`. <br>
 	 * this is the only easy way to register `type_name`s of sub-sub-classes of abstract {@link SchemaNode}. <br>
-	 * check out {@link SHeadLengthArray} to see how it extends {@link SArray}, but registers its own `type_name = "headarray"`
+	 * check out {@link SHeadArray} to see how it extends {@link SArray}, but registers its own `type_name = "headarray"`
 	 * that's different from its parent class's `type_name = "array"`
 	*/
 	setType<NewTypeName extends string>(type_name: NewTypeName, register: boolean = true): this & { type: NewTypeName } {
@@ -396,6 +396,67 @@ export class SEnum extends SchemaNode<JSPrimitive, "enum"> {
 	}
 }
 
+/** this behaves just like regular {@link SArray}, but has its array length stored in the head (beginning) bytes in the provided {@link head_type} byte format. */
+export class SHeadArray<HeadType extends NumericType, ItemSchema extends SchemaChildNode<any, string>, ItemType = NonNullable<ItemSchema["value"]>> extends SArray<ItemSchema, ItemType> {
+	declare type: "head_array"
+	head_type: HeadType
+	head_schema: SPrimitive<number, this["head_type"]>
+
+	constructor(head_type: HeadType, child?: ItemSchema) {
+		super(child)
+		this.setType("head_array")
+		this.head_type = head_type
+		this.head_schema = new SPrimitive(head_type)
+	}
+	static override from(schema_obj: ClassFieldsOf<SHeadArray<any, any>>) {
+		const child: { type: string } = schema_obj.children[0]
+		return new this(schema_obj.head_type, makeS(child))
+	}
+	override encode(value: ItemType[]) {
+		return concat(this.head_schema.encode(value.length), super.encode(value))
+	}
+	override decode(buf: Uint8Array, offset: number) {
+		const
+			[arr_len, s0] = this.head_schema.decode(buf, offset),
+			[arr, s1] = super.decode(buf, offset + s0, arr_len)
+		return [arr, s0 + s1] as Decoded<ItemType[]>
+	}
+}
+
+/** {@link PrimitiveArrayType} typically require length information to be decoded. this subclass of {@link SPrimitive} schema stores the length information
+ * in the head bytes using the provided {@link head_type} binary numeric format.
+*/
+export class SHeadPrimitive<HeadType extends NumericType, T extends JSPrimitive & { length: number }, TypeName extends PrimitiveArrayType> extends SPrimitive<T, TypeName> {
+	declare type: `head_${TypeName}`
+	head_type: HeadType
+	head_schema: SPrimitive<number, this["head_type"]>
+
+	constructor(head_type: HeadType, content_type: TypeName, default_value?: T, default_args?: any[]) {
+		super(content_type, default_value, default_args)
+		this.setType(`head_${content_type}`)
+		this.head_type = head_type
+		this.head_schema = new SPrimitive(head_type)
+	}
+	static override from(schema_obj: {
+		type: `head_${PrimitiveArrayType}`,
+		head_type: NumericType,
+		value?: PrimitiveArrayType,
+		args?: any[],
+	}): SPrimitive {
+		const content_type = schema_obj.type.replace("head_", "") as PrimitiveArrayType
+		return new this(schema_obj.head_type, content_type, schema_obj.value, schema_obj.args)
+	}
+	override encode(value: T) {
+		return concat(this.head_schema.encode(value.length), super.encode(value))
+	}
+	override decode(buf: Uint8Array, offset: number, ...args: never[]) {
+		const
+			[len, s0] = this.head_schema.decode(buf, offset),
+			[value, s1] = super.decode(buf, offset + s0, len)
+		return [value, s0 + s1] as Decoded<T>
+	}
+}
+
 /** a schema node representing a union between different types of schema nodes */
 /*
 export class SUnion<ItemType extends object, ItemTypeName extends string> extends SchemaNode<ItemType[], "union"> {
@@ -446,51 +507,3 @@ export class SUnion<ItemType extends object, ItemTypeName extends string> extend
 	}
 }
 */
-
-
-
-/* convenience schema classes */
-
-export class SHeadLengthArray<HeadType extends NumericType, ItemSchema extends SchemaChildNode<any, string>, ItemType = NonNullable<ItemSchema["value"]>> extends SArray<ItemSchema, ItemType> {
-	declare type: "headarray"
-	head_type: HeadType
-	head_schema: SPrimitive<number, this["head_type"]>
-
-	constructor(head_type: HeadType, child?: ItemSchema) {
-		super(child)
-		this.setType("headarray")
-		this.head_type = head_type
-		this.head_schema = new SPrimitive(head_type)
-	}
-	override encode(value: ItemType[]) {
-		return concat(this.head_schema.encode(value.length), super.encode(value))
-	}
-	override decode(buf: Uint8Array, offset: number) {
-		const
-			[arr_len, s0] = this.head_schema.decode(buf, offset),
-			[arr, s1] = super.decode(buf, offset + s0, arr_len)
-		return [arr, s0 + s1] as Decoded<ItemType[]>
-	}
-}
-
-export class SHeadBytes<HeadType extends NumericType> extends SPrimitive<Uint8Array, "bytes"> {
-	declare type: "headbytes"
-	head_type: HeadType
-	head_schema: SPrimitive<number, this["head_type"]>
-
-	constructor(head_type: HeadType) {
-		super("bytes")
-		this.setType("headbytes")
-		this.head_type = head_type
-		this.head_schema = new SPrimitive(head_type)
-	}
-	override encode(value: Uint8Array) {
-		return concat(this.head_schema.encode(value.length), super.encode(value))
-	}
-	override decode(buf: Uint8Array, offset: number, ...args: never[]) {
-		const
-			[len, s0] = this.head_schema.decode(buf, offset),
-			[value, s1] = super.decode(buf, offset + s0, len)
-		return [value, s0 + s1] as Decoded<Uint8Array>
-	}
-}

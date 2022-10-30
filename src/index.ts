@@ -65,12 +65,7 @@ export type {
 	TypedArray,
 } from "./utility"
 
-export {
-	DEBUG,
-	MINIFY,
-	BUNDLE,
-	DONOT_INCLUDE_PRIMITIVES,
-} from "./compiler_options.mjs"
+export { default as compiler_options } from "./compiler_options.mjs"
 
 /*
 // TO BE DEPRECATED

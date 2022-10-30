@@ -451,25 +451,25 @@ export class SUnion<ItemType extends object, ItemTypeName extends string> extend
 
 /* convenience schema classes */
 
-export class SHeadLengthArray<ItemSchema extends SchemaChildNode<any, string>, HeadType extends NumericType> extends SArray<ItemSchema> {
+export class SHeadLengthArray<HeadType extends NumericType, ItemSchema extends SchemaChildNode<any, string>, ItemType = NonNullable<ItemSchema["value"]>> extends SArray<ItemSchema, ItemType> {
 	declare type: "headarray"
 	head_type: HeadType
 	head_schema: SPrimitive<number, this["head_type"]>
 
-	constructor(child?: ItemSchema, head_type: HeadType = "u4l" as HeadType) {
+	constructor(head_type: HeadType, child?: ItemSchema) {
 		super(child)
 		this.setType("headarray")
 		this.head_type = head_type
 		this.head_schema = new SPrimitive(head_type)
 	}
-	override encode(value: NonNullable<ItemSchema["value"]>[]) {
+	override encode(value: ItemType[]) {
 		return concat(this.head_schema.encode(value.length), super.encode(value))
 	}
 	override decode(buf: Uint8Array, offset: number) {
 		const
 			[arr_len, s0] = this.head_schema.decode(buf, offset),
 			[arr, s1] = super.decode(buf, offset + s0, arr_len)
-		return [arr, s0 + s1] as Decoded<ItemSchema["value"][]>
+		return [arr, s0 + s1] as Decoded<ItemType[]>
 	}
 }
 

@@ -5,7 +5,7 @@
 
 declare const [DEBUG, MINIFY, BUNDLE]: [boolean, boolean, boolean]
 declare const [DONOT_BOOLEAN, DONOT_CSTR, DONOT_STR, DONOT_BYTES, DONOT_NUMBER, DONOT_UVAR, DONOT_IVAR]: false[]
-import { concat, getEnvironmentEndianess, swapEndianessFast, TypedArray, TypedArrayConstructor } from "./utility"
+import { concat, Decoded, getEnvironmentEndianess, swapEndianessFast, TypedArray, TypedArrayConstructor } from "./utility"
 
 /** unsigned integer, signed integer, or IEEE-754 float */
 export type NumericFormatType = "u" | "i" | "f"
@@ -68,7 +68,7 @@ export type JSPrimitive = string | boolean | number | bigint | number[] | Uint8A
 export type EncodeFunc<T extends JSPrimitive, ARGS extends any[] = []> = (value: T, ...args: ARGS) => Uint8Array
 
 /** primitive type decoding signature */
-export type DecodeFunc<T extends JSPrimitive, ARGS extends any[] = []> = (buffer: Uint8Array, offset: number, ...args: ARGS) => [value: T, bytesize: number]
+export type DecodeFunc<T extends JSPrimitive, ARGS extends any[] = []> = (buffer: Uint8Array, offset: number, ...args: ARGS) => Decoded<T>
 
 
 const txt_encoder = new TextEncoder()
@@ -108,7 +108,7 @@ export const encodeSeq = (...items: Parameters<typeof encode>[]) => {
  * decodeSeq(Uint8Array.of(0x00, 0x12, 0xAB, 0x98, 104, 101, 108, 108, 111, 0), 0, ["u4b"], ["str", 5], ["bool"]) === [[0x12AB98, "hello", false], 10]
  * ```
 */
-export const decodeSeq = (buf: Uint8Array, offset: number, ...items: [type: PrimitiveType, ...args: any[]][]): [values: JSPrimitive[], bytesize: number] => {
+export const decodeSeq = (buf: Uint8Array, offset: number, ...items: [type: PrimitiveType, ...args: any[]][]): Decoded<JSPrimitive[]> => {
 	const values: JSPrimitive[] = []
 	let total_bytesize = 0
 	for (const [type, ...args] of items) {

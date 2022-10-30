@@ -12,6 +12,8 @@ export type OptionalKeysOf<T> = { [K in keyof T as (undefined extends T[K] ? K :
 
 export type ClassFieldsOf<T> = { [K in keyof T as (T[K] extends Function ? never : K)]: T[K] }
 
+export type Decoded<V, ByteSize extends number = number> = [value: V, bytesize: ByteSize]
+
 /** represents a typical javasctipt object, something that pairs `keys` with `values` */
 export type Obj = { [key: PropertyKey]: any }
 
@@ -19,10 +21,10 @@ export type Obj = { [key: PropertyKey]: any }
 export type EmptyObj = { [key: PropertyKey]: never }
 
 /** abstract constructor of any typed array, such as `new Uint8Array(...)` */
-export type TypedArrayConstructor = Uint8ArrayConstructor | Int8ArrayConstructor | Uint8ClampedArrayConstructor | Int16ArrayConstructor | Uint16ArrayConstructor | Int32ArrayConstructor | Uint32ArrayConstructor | Float32ArrayConstructor | Float64ArrayConstructor
+export type TypedArrayConstructor = Uint8ArrayConstructor | Int8ArrayConstructor | Uint8ClampedArrayConstructor | Int16ArrayConstructor | Uint16ArrayConstructor | Int32ArrayConstructor | Uint32ArrayConstructor | Float32ArrayConstructor | Float64ArrayConstructor //| BigUint64ArrayConstructor | BigInt64ArrayConstructor
 
 /** an instance of any typed array, such as `Uint8Array` */
-export type TypedArray = Uint8Array | Int8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigUint64Array | BigInt64Array
+export type TypedArray = Uint8Array | Int8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array //| BigUint64Array | BigInt64Array
 
 /** concatenate a bunch of `Uint8Array` arrays */
 export const concat = (...u8arrs: Uint8Array[]): Uint8Array => {
@@ -77,6 +79,7 @@ export const is_subidentical = <T extends ([] | TypedArray)>(arr1: T, arr2: T): 
 export class FileParser<S extends SchemaNode<any, string>> {
 	/** the html input element that provides a gateway for user file selection */
 	readonly loader_input: HTMLInputElement = document.createElement("input")
+	readonly downloader_link: HTMLAnchorElement = document.createElement("a")
 	readonly file_reader = new FileReader()
 	/** schema to be used for encoding and decoding */
 	readonly schema: S
@@ -97,7 +100,11 @@ export class FileParser<S extends SchemaNode<any, string>> {
 				len = files.length
 			for (let i = 0; i < len; i++) this.parseFile(files[i]).then(data => this.loaded_data.push(data))
 		}
-		if (attach_to instanceof HTMLElement) attach_to.appendChild(this.loader_input)
+		this.downloader_link.innerHTML = "download file"
+		if (attach_to instanceof HTMLElement) {
+			attach_to.appendChild(this.loader_input)
+			attach_to.appendChild(this.downloader_link)
+		}
 	}
 
 	/** parse and decode the provided file */
@@ -128,14 +135,30 @@ export class FileParser<S extends SchemaNode<any, string>> {
 	clearLoadedData(): void {
 		while (this.loaded_data.length > 0) this.loaded_data.pop()
 	}
+
+	/** encode the provided javascript object into a `Uint8Array` bytes array using `this.schema.encode` */
+	encodeObject(value: NonNullable<S["value"]>): Uint8Array {
+		return this.schema.encode(value)
+	}
+
+	/** download the provided javascript object as a binary blob, by encoding it based on `this.schema.encode` */
+	downloadObject(value: NonNullable<S["value"]>, filename: string = "") {
+		const blob = new Blob([this.encodeObject(value)], { type: "application/octet-stream" })
+		const url = URL.createObjectURL(blob)
+		this.downloader_link.setAttribute("href", url)
+		this.downloader_link.setAttribute("download", filename)
+		this.downloader_link.click() // start downloading
+	}
 }
-
-
 
 /* development helping tools. don't include in production */
 
 /** convert an array of numbers to hex_string, for the sake of representation or visual purposes */
-export const to_hex_string = (arr: number[]) => {
-	const str = arr.map(v => v.toString(16)).reduce((s, v) => s + "0x" + v + ", ", "")
-	return "[" + str.substring(0, str.length - 2) + "]"
+export const to_hex_string = (arr: number[] | TypedArray, sep: string = ", ", prefix: string = "0x", trailing_sep: boolean = false) => {
+	const num_arr: number[] = (arr as TypedArray).buffer ? Array.from(arr as TypedArray) : arr as number[]
+	const str = num_arr.map(v => v.toString(16).toUpperCase()).reduce((s, v) => {
+		v = v.length === 2 ? v : "0" + v
+		return s + prefix + v + sep
+	}, "")
+	return "[" + str.substring(0, str.length - (trailing_sep ? 0 : sep.length)) + "]"
 }

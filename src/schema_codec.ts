@@ -3,8 +3,8 @@
  * @module
 */
 
-import { decode as decodeP, encode as encodeP, JSPrimitive, PrimitiveType } from "./primitive_codec"
-import { ClassFieldsOf, concat, ConstructorOf, Require } from "./utility"
+import { decode as decodeP, encode as encodeP, JSPrimitive, NumericType, PrimitiveType } from "./primitive_codec"
+import { ClassFieldsOf, concat, ConstructorOf, Decoded, Require } from "./utility"
 
 export type JSSimpleTypes = JSPrimitive | JSSimpleTypes[] | { [name: PropertyKey]: JSSimpleTypes }
 
@@ -14,7 +14,7 @@ export type SchemaArgs<S extends SchemaChildNode> = S["args"] extends [] ? NonNu
 export type EncodeSchemaFunc<S extends SchemaNode<any, any>> = (this: S, value: NonNullable<S["value"]>, ...args: SchemaArgs<S>) => Uint8Array
 
 /** decoding signature for schema node */
-export type DecodeSchemaFunc<S extends SchemaNode<any, any>> = (this: S, buffer: Uint8Array, offset: number, ...args: SchemaArgs<S>) => [value: NonNullable<S["value"]>, bytesize: number]
+export type DecodeSchemaFunc<S extends SchemaNode<any, any>> = (this: S, buffer: Uint8Array, offset: number, ...args: SchemaArgs<S>) => Decoded<NonNullable<S["value"]>>
 
 /** create a schema class instance based off of a simple javascript object */
 export type MakeSchemaFrom<S extends SchemaNode<any, string>> = (schema_obj: { [key: string]: any } & { type: S["type"] }) => S
@@ -46,7 +46,7 @@ export abstract class SchemaNode<T extends any, TypeName extends string> {
 	/** describe how an instance of this schema node should be encoded into bytes */
 	abstract encode(value: NonNullable<this["value"]>, ...args: SchemaArgs<this>): Uint8Array
 	/** describe bytes from a buffer should decode a value for this schema node */
-	abstract decode(buffer: Uint8Array, offset: number, ...args: SchemaArgs<this>): [value: NonNullable<this["value"]>, bytesize: number]
+	abstract decode(buffer: Uint8Array, offset: number, ...args: SchemaArgs<this>): Decoded<NonNullable<this["value"]>>
 	/** an abstract static method that creates an instance of `this` schema class, using a regular javascript object */
 	static from: SchemaNodeConstructor<any>["from"] = (schema_obj: ClassFieldsOf<any>) => {
 		console.error("tried to create schema from `Object`: ", schema_obj)
@@ -82,9 +82,21 @@ export abstract class SchemaNode<T extends any, TypeName extends string> {
 
 	constructor(type: TypeName, value?: T, args?: any[]) {
 		this.type = type
-		if (!(type in type_registry)) type_registry[type] = this.constructor as SchemaNodeConstructor<this>
+		if (!(type in type_registry)) this.setType(type, true)
 		if (value) this.setValue(value)
 		if (args) this.setArgs(args)
+	}
+
+	/** manually set `this` schema's `type` to the provided `type_name`, and also
+	 * register the new `type_name` to global `type_registery` if `register = true`. <br>
+	 * this is the only easy way to register `type_name`s of sub-sub-classes of abstract {@link SchemaNode}. <br>
+	 * check out {@link SHeadLengthArray} to see how it extends {@link SArray}, but registers its own `type_name = "headarray"`
+	 * that's different from its parent class's `type_name = "array"`
+	*/
+	setType<NewTypeName extends string>(type_name: NewTypeName, register: boolean = true): this & { type: NewTypeName } {
+		this.type = type_name
+		if (register) type_registry[type_name] = this.constructor as SchemaNodeConstructor<this>
+		return this as this & { type: NewTypeName }
 	}
 
 	setName<Name extends NonNullable<this["name"]>>(name: Name): this & { name: Name } {
@@ -134,7 +146,7 @@ export class SPrimitive<T extends JSPrimitive = any, TypeName extends PrimitiveT
 		return encodeP(this.type, value, ...(args.length > 0 ? args : this.args))
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: this["args"]) {
-		return decodeP(this.type, buf, offset, ...(args.length > 0 ? args : this.args)) as [value: T, bytesize: number]
+		return decodeP(this.type, buf, offset, ...(args.length > 0 ? args : this.args)) as Decoded<T>
 	}
 }
 
@@ -185,7 +197,7 @@ export class SRecord<REC extends { [key: string]: any } = { [key: string]: any }
 			total_bytesize += bytesize
 			record[child.name] = value
 		}
-		return [record, total_bytesize] as [value: REC, bytesize: number]
+		return [record, total_bytesize] as Decoded<REC>
 	}
 	/** an iterator to decode child schemas sequentially as needed
 	*decodeIter(buf: Uint8Array, offset: number, initial_number_of_items: number = 1): Generator<
@@ -248,7 +260,7 @@ export class STuple extends SchemaNode<any[], "tuple"> {
 			total_bytesize += bytesize
 			tuple.push(value)
 		}
-		return [tuple, total_bytesize] as [value: any[], bytesize: number]
+		return [tuple, total_bytesize] as Decoded<any[]>
 	}
 }
 
@@ -306,10 +318,10 @@ export class SArray<ItemSchema extends SchemaChildNode, ItemType = NonNullable<I
 			total_bytesize += bytesize
 			arr[i] = value
 		}
-		return [arr, total_bytesize] as [value: ItemType[], bytesize: number]
+		return [arr, total_bytesize] as Decoded<ItemType[]>
 	}
 	/** decode one item */
-	decodeNext(buf: Uint8Array, offset: number, ...args: never[]): [value: ItemType, bytesize: number] {
+	decodeNext(buf: Uint8Array, offset: number, ...args: never[]): Decoded<ItemType> {
 		return this.children[0].decode(buf, offset)
 	}
 }
@@ -344,7 +356,7 @@ export class SEnumEntry<T extends (JSPrimitive | undefined)> extends SchemaNode<
 	override encode(value?: T | undefined, ...args: any[]): this["value"][1] {
 		return this.value[1]
 	}
-	override decode(buffer: Uint8Array, offset: number, ...args: any[]): [value: this["value"][0], bytesize: number] {
+	override decode(buffer: Uint8Array, offset: number, ...args: any[]): Decoded<this["value"][0]> {
 		return [this.value[0], this.value[1].byteLength]
 	}
 }
@@ -434,3 +446,51 @@ export class SUnion<ItemType extends object, ItemTypeName extends string> extend
 	}
 }
 */
+
+
+
+/* convenience schema classes */
+
+export class SHeadLengthArray<ItemSchema extends SchemaChildNode<any, string>, HeadType extends NumericType> extends SArray<ItemSchema> {
+	declare type: "headarray"
+	head_type: HeadType
+	head_schema: SPrimitive<number, this["head_type"]>
+
+	constructor(child?: ItemSchema, head_type: HeadType = "u4l" as HeadType) {
+		super(child)
+		this.setType("headarray")
+		this.head_type = head_type
+		this.head_schema = new SPrimitive(head_type)
+	}
+	override encode(value: NonNullable<ItemSchema["value"]>[]) {
+		return concat(this.head_schema.encode(value.length), super.encode(value))
+	}
+	override decode(buf: Uint8Array, offset: number) {
+		const
+			[arr_len, s0] = this.head_schema.decode(buf, offset),
+			[arr, s1] = super.decode(buf, offset + s0, arr_len)
+		return [arr, s0 + s1] as Decoded<ItemSchema["value"][]>
+	}
+}
+
+export class SHeadBytes<HeadType extends NumericType> extends SPrimitive<Uint8Array, "bytes"> {
+	declare type: "headbytes"
+	head_type: HeadType
+	head_schema: SPrimitive<number, this["head_type"]>
+
+	constructor(head_type: HeadType) {
+		super("bytes")
+		this.setType("headbytes")
+		this.head_type = head_type
+		this.head_schema = new SPrimitive(head_type)
+	}
+	override encode(value: Uint8Array) {
+		return concat(this.head_schema.encode(value.length), super.encode(value))
+	}
+	override decode(buf: Uint8Array, offset: number, ...args: never[]) {
+		const
+			[len, s0] = this.head_schema.decode(buf, offset),
+			[value, s1] = super.decode(buf, offset + s0, len)
+		return [value, s0 + s1] as Decoded<Uint8Array>
+	}
+}

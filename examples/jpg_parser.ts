@@ -1,5 +1,4 @@
-import { SArray, SEnum, SEnumEntry, SPrimitive, SRecord } from "../src/schema_codec"
-import { concat, FileParser } from "../src/utility"
+import { concat, FileParser, SArray, SEnum, SEnumEntry, SPrimitive, SRecord } from "../src/index"
 
 class delimeter extends SEnum {
 	constructor() {

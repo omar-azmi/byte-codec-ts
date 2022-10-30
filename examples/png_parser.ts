@@ -1,5 +1,4 @@
-import { SArray, SPrimitive, SRecord } from "../src/schema_codec"
-import { FileParser } from "../src/utility"
+import { FileParser, SArray, SPrimitive, SRecord } from "../src/index"
 
 type png_chunk_type = {
 	chunk_length: number,

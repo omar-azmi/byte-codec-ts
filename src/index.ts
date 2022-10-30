@@ -26,6 +26,8 @@ export {
 	SArray,
 	SEnumEntry,
 	SEnum,
+	SHeadBytes,
+	SHeadLengthArray,
 } from "./schema_codec"
 
 export type {
@@ -34,7 +36,9 @@ export type {
 	JSSimpleTypes,
 	MakeSchemaFrom,
 	SRecordChild,
+	SchemaArgs,
 	SchemaChildNode,
+	SchemaNodeConstructor,
 } from "./schema_codec"
 
 export {
@@ -51,8 +55,11 @@ export {
 
 export type {
 	ConstructorOf,
+	ClassFieldsOf,
+	Decoded,
 	Require,
 	Obj,
+	OptionalKeysOf,
 	EmptyObj,
 	TypedArrayConstructor,
 	TypedArray,

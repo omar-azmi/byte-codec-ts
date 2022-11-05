@@ -308,7 +308,7 @@ const decode_uvar: DecodeFunc<number> = DONOT_UVAR || (
 			byte = buf[offset++]
 			value <<= 7n
 			value += BigInt(byte & 0b01111111)
-		} while (byte >> 7 == 1)
+		} while (byte >> 7 === 1)
 		return [Number(value), offset - offset_start]
 	}
 )
@@ -341,7 +341,7 @@ const encode_uvar_array: EncodeFunc<number[]> = DONOT_UVAR || (
 */
 const decode_uvar_array: DecodeFunc<number[], [array_length?: number]> = DONOT_UVAR || (
 	(buf, offset, array_length?) => {
-		array_length = array_length || Infinity
+		if (array_length === undefined) array_length = Infinity
 		const
 			array: number[] = [],
 			offset_start = offset,
@@ -351,7 +351,7 @@ const decode_uvar_array: DecodeFunc<number[], [array_length?: number]> = DONOT_U
 		for (let byte = buf[offset++]; array_length > 0 && offset < buf_length + 1; byte = buf[offset++]) {
 			value <<= 7
 			value += byte & 0b01111111
-			if (byte >> 7 == 1) {
+			if (byte >> 7 === 0) {
 				array.push(value)
 				array_length--
 				value = 0
@@ -401,7 +401,7 @@ const decode_ivar: DecodeFunc<number> = DONOT_IVAR || (
 			byte: number = buf[offset++],
 			sign: bigint = (byte & 0b01000000) > 0n ? -1n : 1n,
 			value: bigint = BigInt(byte & 0b00111111)
-		while (byte >> 7 == 1) {
+		while (byte >> 7 === 1) {
 			byte = buf[offset++]
 			value <<= 7n
 			value += BigInt(byte & 0b01111111)
@@ -442,31 +442,31 @@ const encode_ivar_array: EncodeFunc<number[]> = DONOT_IVAR || (
 */
 const decode_ivar_array: DecodeFunc<number[], [array_length?: number]> = DONOT_IVAR || (
 	(buf, offset, array_length?) => {
-		array_length = array_length || Infinity
+		if (array_length === undefined) array_length = Infinity
 		const
 			array: number[] = [],
 			offset_start = offset,
 			buf_length = buf.length
 		// this is a condensed version of {@link decode_ivar}
 		let
-			sign: (1 | -1) = 1,
+			sign: (1 | 0 | -1) = 0,
 			value: number = 0
-		// first loop is a dummy to setup the variables `sign` and `value`. the first value `array[0]` will be deleted later on via `shift()`
-		array_length++
-		for (let byte = 0b10000000; array_length > 0 && offset < buf_length + 1; byte = buf[offset++]) {
-			value <<= 7
-			value += byte & 0b01111111
-			if (byte >> 7 == 1) {
+		for (let byte = buf[offset++]; array_length > 0 && offset < buf_length + 1; byte = buf[offset++]) {
+			if (sign === 0) {
+				sign = (byte & 0b01000000) > 0 ? -1 : 1
+				value = (byte & 0b00111111)
+			} else {
+				value <<= 7
+				value += byte & 0b01111111
+			}
+			if (byte >> 7 === 0) {
 				array.push(value * sign)
 				array_length--
-				sign = (buf[offset] & 0b01000000) > 0 ? -1 : 1
-				value = buf[offset] & 0b00111111
-				offset++
+				sign = 0
+				value = 0
 			}
 		}
-		array.shift()
 		offset--
-		offset = offset > buf_length ? buf_length : offset
 		return [array, offset - offset_start]
 	}
 )

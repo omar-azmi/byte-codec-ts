@@ -143,6 +143,7 @@ export class SPrimitive<T extends JSPrimitive = any, TypeName extends PrimitiveT
 		return new this(schema_obj.type, schema_obj.value, schema_obj.args)
 	}
 	override encode(value: T, ...args: any[]) {
+		if (value === undefined) value = this.value!
 		return encodeP(this.type, value, ...(args.length > 0 ? args : this.args))
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: this["args"]) {

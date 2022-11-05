@@ -424,36 +424,37 @@ export class SHeadArray<HeadType extends NumericType, ItemSchema extends SchemaC
 	}
 }
 
+type SHeadPrimitive_type<TypeName extends PrimitiveArrayType> = `head_${TypeName}`
+
 /** {@link PrimitiveArrayType} typically require length information to be decoded. this subclass of {@link SPrimitive} schema stores the length information
- * in the head bytes using the provided {@link head_type} binary numeric format.
+ * in the head bytes using the provided {@link HeadType} binary numeric format.
 */
-export class SHeadPrimitive<HeadType extends NumericType, T extends JSPrimitive & { length: number }, TypeName extends PrimitiveArrayType> extends SPrimitive<T, TypeName> {
-	declare type: `head_${TypeName}`
-	head_type: HeadType
-	head_schema: SPrimitive<number, this["head_type"]>
+export class SHeadPrimitive<HeadType extends NumericType, T extends JSPrimitive & { length: number }, TypeName extends PrimitiveArrayType> extends SchemaNode<T, SHeadPrimitive_type<TypeName>> {
+	declare type: SHeadPrimitive_type<TypeName>
+	head_schema: SPrimitive<number, HeadType>
+	content_schema: SPrimitive<T, TypeName>
 
 	constructor(head_type: HeadType, content_type: TypeName, default_value?: T, default_args?: any[]) {
-		super(content_type, default_value, default_args)
-		this.setType(`head_${content_type}`)
-		this.head_type = head_type
+		super(`head_${content_type}`)
 		this.head_schema = new SPrimitive(head_type)
+		this.content_schema = new SPrimitive(content_type, default_value, default_args)
 	}
-	static override from(schema_obj: {
-		type: `head_${PrimitiveArrayType}`,
-		head_type: NumericType,
-		value?: PrimitiveArrayType,
+	static override from<HeadType extends NumericType, T extends JSPrimitive & { length: number }, TypeName extends PrimitiveArrayType>(schema_obj: {
+		type: SHeadPrimitive_type<TypeName>,
+		head_type: HeadType,
+		value?: T,
 		args?: any[],
-	}): SPrimitive {
-		const content_type = schema_obj.type.replace("head_", "") as PrimitiveArrayType
+	}): SHeadPrimitive<HeadType, T, TypeName> {
+		const content_type = schema_obj.type.replace("head_", "") as TypeName
 		return new this(schema_obj.head_type, content_type, schema_obj.value, schema_obj.args)
 	}
-	override encode(value: T) {
-		return concat(this.head_schema.encode(value.length), super.encode(value))
+	override encode(value: T, ...args: never[]) {
+		return concat(this.head_schema.encode(value.length), this.content_schema.encode(value))
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: never[]) {
 		const
 			[len, s0] = this.head_schema.decode(buf, offset),
-			[value, s1] = super.decode(buf, offset + s0, len)
+			[value, s1] = this.content_schema.decode(buf, offset + s0, len)
 		return [value, s0 + s1] as Decoded<T>
 	}
 }

@@ -51,12 +51,14 @@ export {
 	is_subidentical,
 	FileParser,
 	to_hex_string,
+	typed_array_constructor_of,
 } from "./utility"
 
 export type {
 	ConstructorOf,
 	ClassFieldsOf,
 	Decoded,
+	NumericDType,
 	Require,
 	Obj,
 	OptionalKeysOf,

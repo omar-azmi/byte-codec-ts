@@ -20,11 +20,89 @@ export type Obj = { [key: PropertyKey]: any }
 /** represents an empty javasctipt object */
 export type EmptyObj = { [key: PropertyKey]: never }
 
-/** abstract constructor of any typed array, such as `new Uint8Array(...)` */
-export type TypedArrayConstructor = Uint8ArrayConstructor | Int8ArrayConstructor | Uint8ClampedArrayConstructor | Int16ArrayConstructor | Uint16ArrayConstructor | Int32ArrayConstructor | Uint32ArrayConstructor | Float32ArrayConstructor | Float64ArrayConstructor //| BigUint64ArrayConstructor | BigInt64ArrayConstructor
+/** unsigned integer, signed integer, or IEEE-754 float */
+export type NumericFormatType = "u" | "i" | "f"
 
-/** an instance of any typed array, such as `Uint8Array` */
-export type TypedArray = Uint8Array | Int8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array //| BigUint64Array | BigInt64Array
+/** little-endian, big-endian, clamped 1-byte, or 1-byte */
+export type NumericEndianType = "l" | "b"
+
+/** 1-byte, 2-bytes, 4-bytes, 8-bytes, or variable number of bytes */
+export type ByteSize = "1" | "2" | "4" | "8"
+
+/** indicates the name of a numeric type. <br>
+ * the collection of possible valid numeric types is:
+ * - `"u1"`, `"u2"`, `"u4"`, `"u8"`, `"i1"`, `"i2"`, `"i4"`, `"i8"`, `"f4"`, `"f8"`, `"u1c"`
+ * 
+ * the first character specifies the format:
+ * - `u` = unsigned integer
+ * - `i` = signed integer
+ * - `f` = float IEEE-754
+ * 
+ * the second character specifies the byte-size:
+ * - `1` = one byte
+ * - `2` = two bytes (short)
+ * - `4` = four bytes (word)
+ * - `8` = eight bytes (long)
+*/
+export type NumericDType = Exclude<`${NumericFormatType}${ByteSize}` | "u1c", "f1" | "f2" | "u8" | "i8">
+
+/** abstract constructor of any typed array, such as `new Uint8Array(...)`
+ * you can narrow down the constructor through the use of a  {@link NumericDType} string annotation
+ * example: `const clamp_arr_constructor: TypedArrayConstructor<"u1c"> = Uint8ClampedArray`
+*/
+export type TypedArrayConstructor<DType extends NumericDType = NumericDType> = {
+	"u1": Uint8ArrayConstructor
+	"u1c": Uint8ClampedArrayConstructor
+	"u2": Uint16ArrayConstructor
+	"u4": Uint32ArrayConstructor
+	// "u8": BigUint64ArrayConstructor
+	"i1": Int8ArrayConstructor
+	"i2": Int16ArrayConstructor
+	"i4": Int32ArrayConstructor
+	// "i8": BigInt64ArrayConstructor
+	"f4": Float32ArrayConstructor
+	"f8": Float64ArrayConstructor
+}[DType]
+
+/** an instance of any typed array, such as `Uint8Array`
+ * you can narrow down the type through the use of a  {@link NumericDType} string annotation
+ * example: `const clammped_bytes_arr: TypedArrayConstructor<"u1c"> = Uint8ClampedArray`
+*/
+export type TypedArray<DType extends NumericDType = NumericDType> = {
+	"u1": Uint8Array
+	"u1c": Uint8ClampedArray
+	"u2": Uint16Array
+	"u4": Uint32Array
+	// "u8": BigUint64Array
+	"i1": Int8Array
+	"i2": Int16Array
+	"i4": Int32Array
+	// "i8": BigInt64Array
+	"f4": Float32Array
+	"f8": Float64Array
+}[DType]
+
+/** get a typed array constructor by specifying the type as a string */
+export const typed_array_constructor_of = <DType extends NumericDType = NumericDType>(type: `${DType}${string}`): TypedArrayConstructor<DType> => {
+	if (type[2] === "c") return Uint8ClampedArray as any
+	type = type[0] + type[1] as typeof type // this is to trim excessive tailing characters
+	switch (type) {
+		case "u1": return Uint8Array as any
+		case "u2": return Uint16Array as any
+		case "u4": return Uint32Array as any
+		//case "u8": return BigUint64Array as any
+		case "i1": return Int8Array as any
+		case "i2": return Int16Array as any
+		case "i4": return Int32Array as any
+		//case "i8": return BigInt64Array as any
+		case "f4": return Float32Array as any
+		case "f8": return Float64Array as any
+		default: {
+			console.error("an unrecognized typed array type `\"${type}\"` was provided")
+			return Uint8Array as any
+		}
+	}
+}
 
 /** concatenate a bunch of `Uint8Array` arrays */
 export const concat = (...u8arrs: Uint8Array[]): Uint8Array => {

@@ -3,8 +3,9 @@
  * @module
 */
 
-import { decode as decodeP, encode as encodeP, JSPrimitive, NumericType, PrimitiveArrayType, PrimitiveType } from "./primitive_codec"
-import { ClassFieldsOf, concat, ConstructorOf, Decoded, Require } from "./utility"
+import { Decoded, JSPrimitive, pack as encodeP, PrimitiveArrayType, PrimitiveType, unpack as decodeP } from "kitchensink-ts/eightpack"
+import { concatBytes } from "kitchensink-ts/typedbuffer"
+import { ClassFieldsOf, ConstructorOf, NumericType, Require } from "kitchensink-ts/typedefs"
 
 export type JSSimpleTypes = JSPrimitive | JSSimpleTypes[] | { [name: PropertyKey]: JSSimpleTypes }
 
@@ -131,6 +132,7 @@ export abstract class SchemaNode<T extends any, TypeName extends string> {
 
 /** a schema node for primitive none-composite and primitive javascript types */
 export class SPrimitive<T extends JSPrimitive = any, TypeName extends PrimitiveType = any> extends SchemaNode<T, TypeName> {
+	// the typescript error `Type 'TypeName' does not satisfy the constraint 'string'` is incorrect. error appears possibly because the `PrimitiveType` definition is somewhat long, and as a result, typescript registers `PrimitiveType` as `unknown`
 	declare type: TypeName
 	declare value?: T
 	declare children: never
@@ -183,7 +185,7 @@ export class SRecord<REC extends { [key: string]: any } = { [key: string]: any }
 			bytes.push(child.encode(value[child.name]))
 		}
 		//for (const child of this.children) bytes.push(child.encode(value[child.name]))
-		return concat(...bytes)
+		return concatBytes(...bytes)
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: [child_start?: number, child_end?: number]) {
 		const
@@ -247,7 +249,7 @@ export class STuple extends SchemaNode<any[], "tuple"> {
 			child_start = args[0] || this.args[0] || 0,
 			child_end = args[1] || this.args[1] || this.children.length
 		for (let ch = child_start; ch < child_end; ch++) bytes.push(children[ch].encode(value[ch]))
-		return concat(...bytes)
+		return concatBytes(...bytes)
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: [child_start?: number, child_end?: number]) {
 		const
@@ -298,7 +300,7 @@ export class SArray<ItemSchema extends SchemaChildNode, ItemType = NonNullable<I
 			index_start = args[0] || this.args[0] || 0, // `this.args[0]` should equal to `index_start` when decoding
 			index_end = args[1] || this.args[1] || value.length // `this.args[1]` should equal to `index_end` when decoding
 		for (let i = index_start; i < index_end; i++) bytes.push(item_schema.encode(value[i]!))
-		return concat(...bytes)
+		return concatBytes(...bytes)
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: [index_start?: number, index_end?: number] | [len?: number,]) {
 		const
@@ -414,7 +416,7 @@ export class SHeadArray<HeadType extends NumericType, ItemSchema extends SchemaC
 		return new this(schema_obj.head_type, makeS(child))
 	}
 	override encode(value: ItemType[]) {
-		return concat(this.head_schema.encode(value.length), super.encode(value))
+		return concatBytes(this.head_schema.encode(value.length), super.encode(value))
 	}
 	override decode(buf: Uint8Array, offset: number) {
 		const
@@ -449,7 +451,7 @@ export class SHeadPrimitive<HeadType extends NumericType, T extends JSPrimitive 
 		return new this(schema_obj.head_type, content_type, schema_obj.value, schema_obj.args)
 	}
 	override encode(value: T, ...args: never[]) {
-		return concat(this.head_schema.encode(value.length), this.content_schema.encode(value))
+		return concatBytes(this.head_schema.encode(value.length), this.content_schema.encode(value))
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: never[]) {
 		const

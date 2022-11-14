@@ -1,4 +1,5 @@
-import { FileParser, SArray, SPrimitive, SRecord } from "../src/index"
+import { FileParser } from "kitchensink-ts/devdebug"
+import { SArray, SPrimitive, SRecord } from "../src/index.js"
 
 type png_chunk_type = {
 	chunk_length: number,

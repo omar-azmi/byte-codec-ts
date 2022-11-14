@@ -1,4 +1,6 @@
-import { concat, FileParser, SArray, SEnum, SEnumEntry, SPrimitive, SRecord } from "../src/index"
+import { FileParser } from "kitchensink-ts/devdebug"
+import { concatBytes } from "kitchensink-ts/typedbuffer"
+import { SArray, SEnum, SEnumEntry, SPrimitive, SRecord } from "../src/index.js"
 
 class delimeter extends SEnum {
 	constructor() {
@@ -86,7 +88,7 @@ class jpg_schema extends SArray<jpg_segment> {
 			if (segment.marker === "ECS") bytes.push(segment.data)
 			else bytes.push(item_schema.encode(segment))
 		}
-		return concat(...bytes)
+		return concatBytes(...bytes)
 	}
 	override decode(buf: Uint8Array, offset: number): [value: jpg_segment_type[], bytesize: number] {
 		const segments: jpg_segment_type[] = []

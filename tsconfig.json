@@ -1,11 +1,15 @@
 {
 	"compilerOptions": {
-		"lib": ["ESNext", "DOM"],
+		"lib": [
+			"ESNext",
+			"DOM"
+		],
 		"target": "ESNext",
 		"forceConsistentCasingInFileNames": true,
 		"strict": true,
 		"module": "ES6",
 		"allowJs": true,
-		"outDir": "./dist/"
+		"outDir": "./dist/",
+		"moduleResolution": "NodeNext"
 	},
 }

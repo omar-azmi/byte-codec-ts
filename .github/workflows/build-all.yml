@@ -41,7 +41,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: deno-task build-npm-docs
-        run: deno task build-npm-docs
+        run: deno task build-npm-docs "/byte_codec_ts/"
 
       - name: deploy github pages
         uses: JamesIves/github-pages-deploy-action@v4

@@ -1,5 +1,4 @@
-/**
- * a binary serializer for struct like objects based on a schema. <br>
+/** a binary serializer for struct like objects based on a schema. <br>
  * @module
 */
 

@@ -3,9 +3,18 @@ import { basename } from "https://deno.land/std/path/mod.ts"
 import { build } from "https://deno.land/x/dnt/mod.ts"
 import { PackageJsonObject } from "https://deno.land/x/dnt@0.31.0/lib/types.ts"
 
+/** use:
+ * - `"/"` for localhost (default if unspecified in `Deno.args`)
+ * - `"/byte_codec_ts/"` for github pages
+*/
+const site_root = Deno.args[0] ?? "/"
 const npm_dir = "./npm/"
 const main_entrypoint = "./src/mod.ts"
-const sub_entrypoints: string[] = []
+const sub_entrypoints: string[] = [
+	"./src/schema_codec.ts",
+	"./src/primitive_codec.ts",
+]
+
 const tsconfig = {
 	"$schema": "https://json.schemastore.org/tsconfig",
 	compilerOptions: {
@@ -22,7 +31,16 @@ const typedoc = {
 	$schema: "https://typedoc.org/schema.json",
 	entryPoints: [main_entrypoint, ...sub_entrypoints],
 	out: "./docs/",
+	readme: "./readme.md",
+	sidebarLinks: {
+		"readme": site_root,
+		"schema codec": site_root + "modules/schema_codec.html",
+		"primitive codec": site_root + "modules/primitive_codec.html",
+	},
 	skipErrorChecking: true,
+	githubPages: true,
+	includeVersion: true,
+	sort: ["source-order", "required-first", "kind"],
 }
 
 const deno_package = JSON.parse(Deno.readTextFileSync("./deno.json"))

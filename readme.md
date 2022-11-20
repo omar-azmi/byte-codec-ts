@@ -1,4 +1,4 @@
-# Byte-Codec-TS
+# Byte_Codec_TS
 
 This is a simple typescript library that helps you serialize primitive javascript types and composite objects into or from binary. The main focus of this library is to:
 - primarily target the browser
@@ -12,7 +12,7 @@ This is a simple typescript library that helps you serialize primitive javascrip
 
 ### Examples
 
-- encode player `name` as cstring (null-terminated), and xyz `position` as an array of signed 16-bit integers in big-endian format. <br> then follow that it decoding the data
+- encode player `name` as cstring (null-terminated), and xyz `position` as an array of signed 16-bit integers in big-endian format. <br> then follow it by decoding the encoded data
 
 ```ts
 import { packSeq, unpackSeq } from "byte_codec_ts"
@@ -32,7 +32,7 @@ console.debug("original player data:", player) // original player data: { name: 
 console.debug("reconstructed player data:", player_clone) // reconstructed player data: { name: "creeper", position: [ -2822, 992, 3 ] }
 ```
 
-- repeating a more complex version of the previous example using the `structure` codec api that uses a json-like schema for defining player data
+- repeating a more complex version of the previous example using the `schema` codec api that uses a classed based json-like schema for defining player data
 
 ```ts
 import { SRecord, SPrimitive, SHeadPrimitive, SHeadArray } from "byte_codec_ts"

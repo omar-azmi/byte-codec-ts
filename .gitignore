@@ -1,11 +1,7 @@
-# Defaults
-node_modules/
-pnpm-lock.yaml
+# distribution builds and documentation builds
+/npm/
+/docs/
+/dist/
 
-# Main-branch exclusive directories
-dist/
-docs/
-
-# Local temporaries
-backup/
-backups/
+# Version lock files
+/deno.lock

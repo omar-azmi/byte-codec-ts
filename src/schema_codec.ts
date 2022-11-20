@@ -3,9 +3,8 @@
  * @module
 */
 
-import { Decoded, JSPrimitive, pack as encodeP, PrimitiveArrayType, PrimitiveType, unpack as decodeP } from "kitchensink-ts/eightpack"
-import { concatBytes } from "kitchensink-ts/typedbuffer"
-import { ClassFieldsOf, ConstructorOf, NumericType, Require } from "kitchensink-ts/typedefs"
+import type { ClassFieldsOf, ConstructorOf, Decoded, JSPrimitive, NumericType, Require } from "./deps.ts"
+import { concatBytes, decodeP, encodeP } from "./deps.ts"
 
 export type JSSimpleTypes = JSPrimitive | JSSimpleTypes[] | { [name: PropertyKey]: JSSimpleTypes }
 

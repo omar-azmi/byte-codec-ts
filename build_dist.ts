@@ -3,7 +3,7 @@ import { denoPlugin } from "https://deno.land/x/esbuild_deno_loader/mod.ts"
 
 let t0 = performance.now(), t1: number
 await esbuild({
-	entryPoints: ["./mod.ts"],
+	entryPoints: ["./src/mod.ts"],
 	outdir: "./dist/",
 	bundle: true,
 	minify: true,

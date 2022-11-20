@@ -22,6 +22,7 @@ const typedoc = {
 	$schema: "https://typedoc.org/schema.json",
 	entryPoints: [main_entrypoint, ...sub_entrypoints],
 	out: "./docs/",
+	skipErrorChecking: true,
 }
 
 const deno_package = JSON.parse(Deno.readTextFileSync("./deno.json"))

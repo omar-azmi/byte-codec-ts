@@ -30,8 +30,7 @@
 	"devDependencies": {
 		"typescript": "^4.9.3",
 		"typedoc": "^0.23.21",
-		"esbuild": "^0.15.14",
-		"kitchensink-ts": "github:omar-azmi/kitchensink-ts"
+		"esbuild": "^0.15.14"
 	},
 	"node_packageManager": "npm",
 	"tasks": {
@@ -40,6 +39,7 @@
 		"build-npm": "deno run -A ./build_npm.ts",
 		"build-npm-docs": "cd \"./npm/\" && npm run build-docs",
 		"build-npm-dist": "cd \"./npm/\" && npm run build-dist",
+		"serve-npm-docs": "cd \"./npm/docs/\" && deno run -A \"https://deno.land/std/http/file_server.ts\" -p 8000",
 		"clean": "deno run -A ./clean.ts",
 		"test": "deno test -A ./src/mod.ts"
 	}

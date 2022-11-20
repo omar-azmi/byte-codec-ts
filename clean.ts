@@ -3,6 +3,7 @@
 const delete_dir_list: string[] = [
 	"./npm/",
 	"./docs/",
+	"./dist/",
 	/*
 	"./backup",
 	*/

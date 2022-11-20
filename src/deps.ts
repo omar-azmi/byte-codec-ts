@@ -1,0 +1,5 @@
+//import {} from "https://raw.githubusercontent.com/omar-azmi/kitchensink_ts/main/src/mod.ts"
+export { pack, packSeq, unpack, unpackSeq } from "https://raw.githubusercontent.com/omar-azmi/kitchensink_ts/main/src/eightpack.ts"
+export type { Decoded, JSPrimitive, PrimitiveArrayType, PrimitiveType } from "https://raw.githubusercontent.com/omar-azmi/kitchensink_ts/main/src/eightpack.ts"
+export { concatBytes } from "https://raw.githubusercontent.com/omar-azmi/kitchensink_ts/main/src/typedbuffer.ts"
+export type { ClassFieldsOf, ConstructorOf, NumericType, Require, VarNumericType } from "https://raw.githubusercontent.com/omar-azmi/kitchensink_ts/main/src/typedefs.ts"

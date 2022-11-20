@@ -3,9 +3,8 @@
  * @module
 */
 
-import { Decoded, JSPrimitive, pack as encodeP, PrimitiveArrayType, PrimitiveType, unpack as decodeP } from "kitchensink-ts/eightpack"
-import { concatBytes } from "kitchensink-ts/typedbuffer"
-import { ClassFieldsOf, ConstructorOf, NumericType, Require } from "kitchensink-ts/typedefs"
+import type { ClassFieldsOf, ConstructorOf, Decoded, JSPrimitive, NumericType, PrimitiveArrayType, PrimitiveType, Require, VarNumericType } from "./deps.ts"
+import { concatBytes, pack, unpack } from "./deps.ts"
 
 export type JSSimpleTypes = JSPrimitive | JSSimpleTypes[] | { [name: PropertyKey]: JSSimpleTypes }
 
@@ -68,12 +67,12 @@ export abstract class SchemaNode<T extends any, TypeName extends string> {
 	*/
 	children?: SchemaChildNode<any, string>[]
 	/** args that should be passed on to either the `type` specific encoder or decoder */
-	args?: any[]
-	/** an optional doc string for this schema node, that should be cleared when {@link compiler_options.MINIFY} is `true` <br>
+	args: any[] = []
+	/** an optional doc string for this schema node, that should be cleared when `MINIFY` is `true` <br>
 	 * to achive that, you would want to write your doc strings as follows:
 	 * ```ts
 	 * declare const [DEBUG, MINIFY, BUNDLE]: [boolean, boolean, boolean]
-	 * const my_schema_node: SchemaLeafNode<number> {
+	 * const my_schema_node: SPrimitive<number> {
 	 * 	type: "u4l",
 	 * 	doc: MINIFY || "a stupid description of this 32-bit unsinged little piece of endian."
 	 * }
@@ -85,7 +84,7 @@ export abstract class SchemaNode<T extends any, TypeName extends string> {
 		this.type = type
 		if (!(type in type_registry)) this.setType(type, true)
 		if (value) this.setValue(value)
-		if (args) this.setArgs(args)
+		if (args) this.setArgs(...args)
 	}
 
 	/** manually set `this` schema's `type` to the provided `type_name`, and also
@@ -136,7 +135,7 @@ export class SPrimitive<T extends JSPrimitive = any, TypeName extends PrimitiveT
 	declare type: TypeName
 	declare value?: T
 	declare children: never
-	args: Parameters<typeof encodeP>[2] = []
+	declare args: Parameters<typeof pack>[2]
 
 	constructor(type: TypeName, default_value?: T, default_args?: any[]) {
 		super(type, default_value, default_args)
@@ -146,10 +145,10 @@ export class SPrimitive<T extends JSPrimitive = any, TypeName extends PrimitiveT
 	}
 	override encode(value: T, ...args: any[]) {
 		if (value === undefined) value = this.value!
-		return encodeP(this.type, value, ...(args.length > 0 ? args : this.args))
+		return pack(this.type, value, ...(args.length > 0 ? args : this.args))
 	}
 	override decode(buf: Uint8Array, offset: number, ...args: this["args"]) {
-		return decodeP(this.type, buf, offset, ...(args.length > 0 ? args : this.args)) as Decoded<T>
+		return unpack(this.type, buf, offset, ...(args.length > 0 ? args : this.args)) as Decoded<T>
 	}
 }
 
@@ -161,8 +160,8 @@ export interface SRecordChild<Name extends string, T extends any = any, TypeName
 /** a schema node for nested record-like javascript object types */
 export class SRecord<REC extends { [key: string]: any } = { [key: string]: any }> extends SchemaNode<REC, "record"> {
 	declare type: "record"
+	declare args: [child_start?: number, child_end?: number]
 	children: SRecordChild<keyof REC & string, REC[keyof REC]>[] = []
-	args: [child_start?: number, child_end?: number] = []
 
 	constructor(...children: SRecordChild<keyof REC & string, REC[keyof REC]>[]) {
 		super("record")
@@ -229,8 +228,8 @@ export class SRecord<REC extends { [key: string]: any } = { [key: string]: any }
 export class STuple extends SchemaNode<any[], "tuple"> {
 	declare type: "tuple"
 	declare value?: any[]
+	declare args: [child_start?: number, child_end?: number]
 	children: SchemaNode<any, any>[] = []
-	args: [child_start?: number, child_end?: number] = []
 
 	constructor() {
 		super("tuple")
@@ -276,10 +275,9 @@ export class SArray<ItemSchema extends SchemaChildNode, ItemType = NonNullable<I
 	 * - if `args.length == 1`, then: `args[0]` must specify the length of the array when decoding
 	 * - if `args.length == 2`, then: `args[0]` must specify the starting index, and `args[1]` must specify the ending index
 	*/
-	args:
+	declare args:
 		| [index_start: number, index_end: number,]
 		| [len?: number,]
-		= []
 
 	constructor(child?: ItemSchema, array_length?: number) {
 		super("array")
@@ -400,7 +398,7 @@ export class SEnum extends SchemaNode<JSPrimitive, "enum"> {
 }
 
 /** this behaves just like regular {@link SArray}, but has its array length stored in the head (beginning) bytes in the provided {@link head_type} byte format. */
-export class SHeadArray<HeadType extends NumericType, ItemSchema extends SchemaChildNode<any, string>, ItemType = NonNullable<ItemSchema["value"]>> extends SArray<ItemSchema, ItemType> {
+export class SHeadArray<HeadType extends (NumericType | VarNumericType), ItemSchema extends SchemaChildNode<any, string>, ItemType = NonNullable<ItemSchema["value"]>> extends SArray<ItemSchema, ItemType> {
 	declare type: "head_array"
 	head_type: HeadType
 	head_schema: SPrimitive<number, this["head_type"]>
@@ -431,7 +429,7 @@ type SHeadPrimitive_type<TypeName extends PrimitiveArrayType> = `head_${TypeName
 /** {@link PrimitiveArrayType} typically require length information to be decoded. this subclass of {@link SPrimitive} schema stores the length information
  * in the head bytes using the provided {@link HeadType} binary numeric format.
 */
-export class SHeadPrimitive<HeadType extends NumericType, T extends JSPrimitive & { length: number }, TypeName extends PrimitiveArrayType> extends SchemaNode<T, SHeadPrimitive_type<TypeName>> {
+export class SHeadPrimitive<HeadType extends (NumericType | VarNumericType), T extends JSPrimitive & { length: number }, TypeName extends PrimitiveArrayType> extends SchemaNode<T, SHeadPrimitive_type<TypeName>> {
 	declare type: SHeadPrimitive_type<TypeName>
 	head_schema: SPrimitive<number, HeadType>
 	content_schema: SPrimitive<T, TypeName>
@@ -441,7 +439,7 @@ export class SHeadPrimitive<HeadType extends NumericType, T extends JSPrimitive 
 		this.head_schema = new SPrimitive(head_type)
 		this.content_schema = new SPrimitive(content_type, default_value, default_args)
 	}
-	static override from<HeadType extends NumericType, T extends JSPrimitive & { length: number }, TypeName extends PrimitiveArrayType>(schema_obj: {
+	static override from<HeadType extends (NumericType | VarNumericType), T extends JSPrimitive & { length: number }, TypeName extends PrimitiveArrayType>(schema_obj: {
 		type: SHeadPrimitive_type<TypeName>,
 		head_type: HeadType,
 		value?: T,

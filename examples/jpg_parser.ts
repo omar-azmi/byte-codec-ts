@@ -1,6 +1,6 @@
-import { FileParser } from "kitchensink-ts/devdebug"
-import { concatBytes } from "kitchensink-ts/typedbuffer"
-import { SArray, SEnum, SEnumEntry, SPrimitive, SRecord } from "../src/index.js"
+import { FileParser } from "./deps.ts"
+import { concatBytes } from "../src/deps.ts"
+import { SArray, SEnum, SEnumEntry, SPrimitive, SRecord } from "../src/mod.ts"
 
 class delimeter extends SEnum {
 	constructor() {

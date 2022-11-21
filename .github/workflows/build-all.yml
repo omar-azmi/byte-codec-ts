@@ -27,7 +27,7 @@ jobs:
       #   run: deno task test
 
       - name: deno-task build-npm
-        run: deno task build-npm
+        run: deno task build-npm "/byte_codec_ts/"
 
       - name: deno-task build-npm-dist
         run: deno task build-npm-dist
@@ -41,7 +41,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: deno-task build-npm-docs
-        run: deno task build-npm-docs "/byte_codec_ts/"
+        run: deno task build-npm-docs
 
       - name: deploy github pages
         uses: JamesIves/github-pages-deploy-action@v4

@@ -1,6 +1,6 @@
 {
 	"name": "byte_codec_ts",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "a schema based serializer for primitive javascript types with no external dependencies",
 	"author": "Omar Azmi",
 	"license": "Lulz plz don't steal yet",

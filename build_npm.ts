@@ -31,7 +31,7 @@ const typedoc = {
 	$schema: "https://typedoc.org/schema.json",
 	entryPoints: [main_entrypoint, ...sub_entrypoints],
 	out: "./docs/",
-	readme: "./readme.md",
+	readme: "./src/readme.md",
 	sidebarLinks: {
 		"readme": site_root,
 		"schema codec": site_root + "modules/schema_codec.html",
@@ -79,6 +79,6 @@ await build({
 
 // copy other files
 Deno.writeTextFileSync(npm_dir + ".gitignore", "/node_modules/\n")
-Deno.copyFileSync("./readme.md", npm_dir + "readme.md")
+Deno.copyFileSync("./src/readme.md", npm_dir + "src/readme.md")
 Deno.writeTextFileSync(npm_dir + "tsconfig.json", JSON.stringify(tsconfig))
 Deno.writeTextFileSync(npm_dir + "typedoc.json", JSON.stringify(typedoc))

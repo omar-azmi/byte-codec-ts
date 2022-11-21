@@ -2,7 +2,7 @@
   "module": "./esm/mod.js",
   "types": "./types/mod.d.ts",
   "name": "byte_codec_ts",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "a schema based serializer for primitive javascript types with no external dependencies",
   "author": "Omar Azmi",
   "license": "Lulz plz don't steal yet",
@@ -40,6 +40,18 @@
       "import": {
         "default": "./esm/mod.js",
         "types": "./types/mod.d.ts"
+      }
+    },
+    "./schema_codec": {
+      "import": {
+        "default": "./esm/schema_codec.js",
+        "types": "./types/schema_codec.d.ts"
+      }
+    },
+    "./primitive_codec": {
+      "import": {
+        "default": "./esm/primitive_codec.js",
+        "types": "./types/primitive_codec.d.ts"
       }
     }
   }

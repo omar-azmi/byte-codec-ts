@@ -1,5 +1,4 @@
-/**
- * a binary serializer for struct like objects based on a schema. <br>
+/** a binary serializer for struct like objects based on a schema. <br>
  * @module
 */
 import type { ClassFieldsOf, ConstructorOf, Decoded, JSPrimitive, NumericType, PrimitiveArrayType, PrimitiveType, Require, VarNumericType } from "./deps.js";

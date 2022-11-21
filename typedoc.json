@@ -1,1 +1,1 @@
-{"$schema":"https://typedoc.org/schema.json","entryPoints":["./src/mod.ts"],"out":"./docs/","skipErrorChecking":true}
+{"$schema":"https://typedoc.org/schema.json","entryPoints":["./src/mod.ts","./src/schema_codec.ts","./src/primitive_codec.ts"],"out":"./docs/","readme":"./src/readme.md","sidebarLinks":{"readme":"/byte_codec_ts/","schema codec":"/byte_codec_ts/modules/schema_codec.html","primitive codec":"/byte_codec_ts/modules/primitive_codec.html"},"skipErrorChecking":true,"githubPages":true,"includeVersion":true,"sort":["source-order","required-first","kind"]}

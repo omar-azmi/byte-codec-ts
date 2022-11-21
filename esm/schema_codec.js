@@ -1,5 +1,4 @@
-/**
- * a binary serializer for struct like objects based on a schema. <br>
+/** a binary serializer for struct like objects based on a schema. <br>
  * @module
 */
 import { concatBytes, pack, unpack } from "./deps.js";

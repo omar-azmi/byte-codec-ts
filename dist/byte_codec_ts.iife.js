@@ -7,7 +7,7 @@
     return value;
   };
 
-  // src/deps/raw.githubusercontent.com/omar-azmi/kitchensink_ts/main/src/eightpack-varint.ts
+  // src/deps/deno.land/x/kitchensink_ts@v0.3.4/src/eightpack_varint.ts
   var encode_varint = (value, type) => encode_varint_array([value], type);
   var encode_varint_array = (value, type) => type[0] === "u" ? encode_uvar_array(value) : encode_ivar_array(value);
   var decode_varint = (buf, offset, type) => {
@@ -87,7 +87,7 @@
     return [array, offset - offset_start];
   };
 
-  // src/deps/raw.githubusercontent.com/omar-azmi/kitchensink_ts/main/src/typedbuffer.ts
+  // src/deps/deno.land/x/kitchensink_ts@v0.3.4/src/typedbuffer.ts
   var typed_array_constructor_of = (type) => {
     if (type[2] === "c")
       return Uint8ClampedArray;
@@ -136,7 +136,7 @@
     return outarr;
   };
 
-  // src/deps/raw.githubusercontent.com/omar-azmi/kitchensink_ts/main/src/eightpack.ts
+  // src/deps/deno.land/x/kitchensink_ts@v0.3.4/src/eightpack.ts
   var txt_encoder = new TextEncoder();
   var txt_decoder = new TextDecoder();
   var packSeq = (...items) => {
